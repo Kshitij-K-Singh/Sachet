@@ -12,8 +12,10 @@ import "./App.css";
 /* ------------------------------------------------------------------ types
    Mirrors api/main.py AnalyzeResponse. Keep in sync; contract v1. */
 
-type Classification = "education" | "mixed" | "promotion";
-type CautionLevel = "low" | "medium" | "high";
+/* "out_of_scope" = the API found no financial content at all, so no
+   verdict applies. It is not a "low caution" pass. */
+type Classification = "education" | "mixed" | "promotion" | "out_of_scope";
+type CautionLevel = "low" | "medium" | "high" | "not_applicable";
 
 interface Claim {
   quote: string;
@@ -40,7 +42,8 @@ interface AnalyzeResponse {
   verification: VerificationItem[];
   disclaimer: string;
   rubric_version: string;
-  model?: { label: Classification; confidence: number } | null;
+  /* The shadow classifier only knows the 3 in-scope labels. */
+  model?: { label: Exclude<Classification, "out_of_scope">; confidence: number } | null;
 }
 
 /* ------------------------------------------------------------------ config */
@@ -62,6 +65,10 @@ const SAMPLES: { name: string; text: string }[] = [
   {
     name: "Mixed post",
     text: "Compounding means your returns also earn returns over time, which is why starting early matters. My follower made lakhs using this trick. DM me to join my VIP group, offer ends today!",
+  },
+  {
+    name: "Off-topic",
+    text: "Just had pizza with friends at the park this afternoon. Football match was great, going to sleep now.",
   },
 ];
 
@@ -107,7 +114,7 @@ const OFFLINE_DEMO: AnalyzeResponse = {
     },
   ],
   disclaimer: "This is an awareness tool, not investment advice.",
-  rubric_version: "rubric-v1.1 (offline)",
+  rubric_version: "rubric-v1.3 (offline)",
 };
 
 const CLAIM_TYPE_LABELS: Record<string, string> = {
@@ -135,6 +142,11 @@ const NEXT_STEPS: Record<Classification, string[]> = {
     "Treat guaranteed-return promises as a red flag and pause before acting.",
     "Never pay or share personal details with groups promising assured profits.",
     "You can report suspected fraud on SEBI SCORES: scores.sebi.gov.in.",
+  ],
+  out_of_scope: [
+    "Sachet only rates financial promotion vs education, so this text has nothing to grade.",
+    "If you meant to check money content, try a reel caption, a forwarded message, or an explainer about saving and investing.",
+    "No flags here is not a clean bill of health. For other topics use a tool built for them.",
   ],
 };
 
@@ -208,6 +220,10 @@ export default function App() {
       promotion: {
         title: "Looks promotional",
         blurb: "Built to sell, not to teach. Treat its claims with skepticism.",
+      },
+      out_of_scope: {
+        title: "Not financial content",
+        blurb: "Outside what Sachet checks, so no verdict applies.",
       },
     };
     return map[result.classification];
@@ -522,7 +538,10 @@ export default function App() {
                     <span className="step-n">3</span>
                     <div>
                       <strong>Verdict plus caution</strong>
-                      <span>Education, Mixed, or Promotion, with Low to High caution.</span>
+                      <span>
+                        Education, Mixed, or Promotion, with Low to High caution. Text
+                        that is not financial at all returns out of scope, not a pass.
+                      </span>
                     </div>
                   </li>
                 </ol>
@@ -531,7 +550,7 @@ export default function App() {
 
             <Card className="rise" style={riseDelay(300)}>
               <Card.Header>
-                <Card.Title>Rubric v1.1</Card.Title>
+                <Card.Title>Rubric v1.3</Card.Title>
                 <Card.Description>Fixed taxonomy, sourced from SEBI documents. The model only applies it.</Card.Description>
               </Card.Header>
               <Card.Content>
@@ -570,14 +589,18 @@ export default function App() {
                   </h1>
                   <p className="lede">{verdictMeta?.blurb}</p>
                 </div>
-                <div className="meter-wrap">
-                  <Meter
-                    value={result.caution_score}
-                    max={10}
-                    level={result.caution_level}
-                    label="Caution"
-                  />
-                </div>
+                {/* No score exists for out-of-scope text. Rendering "0 / 10"
+                    would read as a passing caution grade, which is wrong. */}
+                {result.classification !== "out_of_scope" && (
+                  <div className="meter-wrap">
+                    <Meter
+                      value={result.caution_score}
+                      max={10}
+                      level={result.caution_level as Exclude<CautionLevel, "not_applicable">}
+                      label="Caution"
+                    />
+                  </div>
+                )}
               </div>
 
               <p className="summary">{result.summary}</p>
@@ -635,8 +658,9 @@ export default function App() {
             <Card.Content>
               {result.claims.length === 0 ? (
                 <p className="lede">
-                  Clean pass. No guaranteed returns, urgency tricks, or paid-group
-                  pushes detected in this text.
+                  {result.classification === "out_of_scope"
+                    ? "Nothing was checked here. No rubric pattern ran, because this text does not read as financial content."
+                    : "Clean pass. No guaranteed returns, urgency tricks, or paid-group pushes detected in this text."}
                 </p>
               ) : (
                 <ul className="claims">
@@ -712,7 +736,7 @@ export default function App() {
       )}
 
       <footer className="footer">
-        <span>Sachet: promotion vs education analyzer, built for Sangyan 2026 Track E. Rubric v1.1.</span>
+        <span>Sachet: promotion vs education analyzer, built for Sangyan 2026 Track E. Rubric v1.3.</span>
         <span>{result?.disclaimer ?? OFFLINE_DEMO.disclaimer}</span>
       </footer>
     </div>

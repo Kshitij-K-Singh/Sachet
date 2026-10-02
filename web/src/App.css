@@ -475,6 +475,8 @@
 .verdict-education { border-top-color: var(--good); }
 .verdict-mixed { border-top-color: #fff600; }
 .verdict-promotion { border-top-color: #fa003f; }
+/* Neutral grey: no verdict was reached, so it must not read as a pass. */
+.verdict-out_of_scope { border-top-color: #6b7280; }
 
 /* flex-basis, not a fixed min-width: the old `min-width: 240px` on both
    children demanded 240 + 240 + 26px of gap, which is wider than the

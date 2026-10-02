@@ -77,8 +77,11 @@ class ModelOpinion(BaseModel):
 
 
 class AnalyzeResponse(BaseModel):
-    classification: Literal["education", "mixed", "promotion"]
-    caution_level: Literal["low", "medium", "high"]
+    # "out_of_scope" means the text was not financial content at all, so
+    # no verdict applies and caution_level is "not_applicable" (not "low":
+    # low caution would imply we rated it and found nothing wrong).
+    classification: Literal["education", "mixed", "promotion", "out_of_scope"]
+    caution_level: Literal["low", "medium", "high", "not_applicable"]
     caution_score: int
     summary: str
     claims: list[Claim]
@@ -99,8 +102,8 @@ def health() -> dict:
 def meta() -> dict:
     return {
         "rubric_version": RUBRIC_VERSION,
-        "labels": ["education", "mixed", "promotion"],
-        "caution_levels": ["low", "medium", "high"],
+        "labels": ["education", "mixed", "promotion", "out_of_scope"],
+        "caution_levels": ["low", "medium", "high", "not_applicable"],
         "disclaimer": DISCLAIMER,
         "audio_upload": "whisper-cpp",
     }

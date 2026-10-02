@@ -43,6 +43,75 @@ def test_mixed_sample():
     assert out["caution_level"] in ("medium", "high")
 
 
+def test_forward_return_promise_with_horizon_is_promotion():
+    # User-reported miss: "return of 60% over the next three months" used the
+    # noun-first order, which the old %-before-noun pattern never matched.
+    text = (
+        "I feel if I buy stocks of policy without today for at least 100 rupees, "
+        "then I will get a return of 60% over the next three months."
+    )
+    out = analyze_text(text)
+    assert out["classification"] == "promotion"
+    assert out["caution_level"] == "high"
+    assert "unrealistic_returns" in out["flags"]
+
+
+def test_horizon_requiring_return_promise_variants():
+    for text in (
+        "Buy today and get a return of 60% in 3 months with zero risk.",
+        "Invest now, this gives you a profit of 90% within 6 weeks.",
+        "Aapko 3 mahine me 60 percent ka return milega, aaj hi kharido.",
+    ):
+        assert "unrealistic_returns" in analyze_text(text)["flags"], text
+
+
+def test_long_horizon_return_facts_stay_education():
+    # The horizon token is the discriminator: edu-0003's "12% annualised
+    # returns over very long periods" must not be read as a promise.
+    text = (
+        "Equity funds have delivered around 12% annualised returns over very long "
+        "periods, but yearly returns swing widely and capital is at risk."
+    )
+    assert analyze_text(text)["classification"] == "education"
+
+
+def test_off_topic_text_is_out_of_scope_not_education():
+    # Random chatter must not get a confident "education" verdict.
+    out = analyze_text("I love pizza and football, we went to the park yesterday afternoon")
+    assert out["classification"] == "out_of_scope"
+    assert out["caution_level"] == "not_applicable"
+    assert out["caution_score"] == 0
+    assert out["claims"] == []
+    assert "does not look like financial" in out["summary"].lower()
+
+
+def test_out_of_scope_survives_bilingual_off_topic_text():
+    for text in (
+        "It is raining heavily in Mumbai today and the roads are flooded",
+        "Mix two cups of flour with one cup sugar and bake at 180 degrees",
+        "आज मौसम बहुत ठंडा है और बारिश हो रही है",
+    ):
+        assert analyze_text(text)["classification"] == "out_of_scope", text
+
+
+def test_flags_keep_promotional_text_in_scope_even_without_finance_words():
+    # Promo language is topic-agnostic; a scam caption with no finance
+    # vocabulary must still be rated, never dismissed as out of scope.
+    out = analyze_text("Guaranteed 10x returns, join our premium group now, hurry, limited seats")
+    assert out["classification"] in ("mixed", "promotion")
+    assert out["caution_level"] != "not_applicable"
+
+
+def test_finance_content_without_flags_stays_in_scope():
+    for text in (
+        "A mutual fund pools money from many investors to buy stocks and bonds.",
+        "Paisa kaise lagaye? Mutual fund SIP start karo, pehle documents padho",
+        "म्यूचुअल फंड में निवेश करने से पहले सभी दस्तावेज ध्यान से पढ़ें",
+        "Stocks can go down as well as up",
+    ):
+        assert analyze_text(text)["classification"] == "education", text
+
+
 def test_verbatim_validation():
     out = analyze_text("Hello world, nothing financial here at all, just chatting.")
     for c in out["claims"]:
