@@ -1,0 +1,763 @@
+/* ------------------------------------------------------------------
+   Sachet theme. Taste-skill locks, documented here:
+   - SHAPE: all-sharp. Every corner on this page is radius 0. No pills,
+     no rounded cards, no circular dots. One system, no exceptions.
+   - COLOR: one brand accent (#e95a2b, burnt orange) used identically
+     everywhere. Green/amber/red appear ONLY as verdict severity signal
+     (real semantic state, like a status light), nowhere else.
+   - TYPE: Outfit (body) + Space Grotesk (display), self-hosted via
+     fontsource. No Inter default, no serif anywhere.
+   - THEME: dark-only, per explicit direction (premium dark-tech look).
+   ------------------------------------------------------------------ */
+
+:root {
+  --ink: #f5f1e8;
+  --muted: #b3a893;
+  --faint: #8a7f6c;
+  --accent: #e95a2b;
+  --accent-ink: #17100a;
+  --accent-soft: rgba(233, 90, 43, 0.1);
+  --accent-line: rgba(233, 90, 43, 0.45);
+  --good: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --card: rgba(19, 16, 12, 0.72);
+  --line: rgba(245, 241, 232, 0.12);
+  --field: rgba(255, 255, 255, 0.05);
+
+  /* ---------- responsive scale ----------
+     One gutter, one card padding, one tap target. Every horizontal rhythm
+     on the page derives from these three, so the layout stays proportional
+     from a 320px phone to a 1080px desktop instead of snapping at a
+     breakpoint. */
+  --gutter: clamp(14px, 4vw, 20px);
+  --pad-card: clamp(16px, 4.4vw, 24px);
+  --tap: 44px;
+}
+
+* { box-sizing: border-box; }
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--ink);
+  font-family: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Respect notched/rounded displays once viewport-fit=cover is on. */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* ---------- top bar: single line, max 80px ---------- */
+.topbar {
+  width: 100%;
+  max-width: 1080px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 12px var(--gutter);
+  min-height: 64px;
+}
+
+.brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.brand > div { min-width: 0; }
+
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 22px;
+  font-weight: 700;
+  font-family: "Space Grotesk", "Outfit", sans-serif;
+}
+
+.brand-name {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.14em;
+  font-family: "Space Grotesk", "Outfit", sans-serif;
+}
+
+.brand-sub { color: var(--muted); font-size: 12.5px; }
+
+.track-badge {
+  flex: none;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 7px 14px;
+  white-space: nowrap;
+}
+
+.notice {
+  width: calc(100% - var(--gutter) * 2);
+  max-width: 1040px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  padding: 11px clamp(14px, 3.6vw, 18px);
+  font-size: 14px;
+  margin: 10px 0 4px;
+  color: #f7ddd0;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow-wrap: break-word;
+}
+
+/* ---------- layout: 2-col desktop, explicit 1-col mobile ----------
+   minmax(0, …) instead of a bare fr: grid items default to min-width:auto,
+   so one long unbroken quote could otherwise widen the track past the
+   viewport and force a horizontal scroll on the whole page. */
+.layout {
+  width: 100%;
+  max-width: 1080px;
+  padding: var(--gutter) var(--gutter) 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.result-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.result-layout .verdict { grid-column: 1 / -1; }
+.result-layout .privacy-box { grid-column: 1 / -1; }
+
+@media (max-width: 880px) {
+  .layout, .result-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+}
+
+.hero-col, .side { display: grid; gap: 18px; align-content: start; min-width: 0; }
+
+/* ---------- PanelUI-style compound card ---------- */
+.rcard {
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: var(--pad-card);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  /* Component-level responsiveness: descendants below adapt to the card's
+     own width, not the viewport's. On a wide desktop the verdict card spans
+     the grid; on a phone it is one column wide, and the meter stacks even
+     though the window is still "large". */
+  container: rcard / inline-size;
+  min-width: 0;
+}
+
+.rcard-header { margin-bottom: 14px; }
+
+.rcard-title {
+  font-size: clamp(15px, 3.6vw, 17px);
+  margin: 0 0 4px;
+  font-family: "Space Grotesk", "Outfit", sans-serif;
+}
+
+.rcard-desc { color: var(--muted); font-size: 13.5px; margin: 0; overflow-wrap: break-word; }
+
+.rcard-content { display: grid; gap: 0; }
+.rcard-footer { margin-top: 16px; }
+
+/* ---------- hero: left-aligned, fits first viewport ---------- */
+.hero { padding: 6px 4px 2px; min-width: 0; }
+
+.hero-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  padding: 6px 14px;
+  margin-bottom: 14px;
+}
+
+/* vw-driven so the h1 keeps its weight without ever exceeding the column:
+   the lower clamp bound is what stops "or does it sell?" overflowing at
+   320px, the upper bound is the original desktop size. */
+.hero-title {
+  font-size: clamp(28px, 7.6vw, 52px);
+  line-height: 1.08;
+  margin: 0 0 14px;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  font-family: "Space Grotesk", "Outfit", sans-serif;
+}
+
+.hero-title .accent {
+  color: var(--accent);
+  font-style: italic;
+}
+
+.lede { color: var(--muted); font-size: clamp(14.5px, 3.6vw, 15.5px); line-height: 1.6; margin: 0; overflow-wrap: break-word; }
+.lede strong { color: var(--ink); }
+
+/* ---------- input ---------- */
+.sample-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sample-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+.chip-btn {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  padding: 0 14px;
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+
+.chip-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.field-label { display: block; font-weight: 700; font-size: 13px; margin: 4px 0 8px; }
+
+.textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  padding: 13px 14px;
+  /* 16px is the iOS zoom threshold. Anything smaller makes Safari
+     auto-zoom the viewport on focus and the user never zooms back out. */
+  font-size: 16px;
+  line-height: 1.6;
+  resize: vertical;
+  background: var(--field);
+  color: var(--ink);
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.textarea::placeholder { color: #a89c86; }
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(233, 90, 43, 0.35);
+}
+
+.meta-row { display: flex; flex-wrap: wrap; gap: 2px 12px; justify-content: space-between; margin: 7px 0 13px; }
+.count { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.count.warn { color: var(--accent); font-weight: 700; }
+
+.audio-row { margin-bottom: 15px; min-width: 0; }
+
+.audio-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: center;
+  border: 1px dashed rgba(245, 241, 232, 0.25);
+  padding: 12px 14px;
+  min-height: var(--tap);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.2s;
+}
+
+.audio-box:hover { border-color: var(--accent); }
+
+.audio-icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+}
+
+/* The copy block takes the slack; min-width:0 lets it actually shrink
+   instead of pushing the ON-DEVICE badge past the card edge. */
+.audio-text { flex: 1 1 150px; min-width: 0; }
+
+.audio-box strong { display: block; font-size: 14px; overflow-wrap: break-word; }
+.audio-box small { color: var(--muted); font-size: 12.5px; display: block; line-height: 1.45; }
+
+.audio-box.busy { opacity: 0.7; cursor: wait; }
+
+.hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hint-row select {
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 0 9px;
+  min-height: var(--tap);
+  font-size: 16px;
+  font-family: inherit;
+}
+
+.hint-row select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(233, 90, 43, 0.35);
+}
+
+.audio-note {
+  font-size: 13px;
+  color: var(--accent);
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.soon {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 4px 11px;
+  white-space: nowrap;
+}
+
+.error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  padding: 10px 14px;
+  font-size: 14px;
+  margin-bottom: 13px;
+  overflow-wrap: break-word;
+}
+
+.primary {
+  width: 100%;
+  min-height: var(--tap);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: "Space Grotesk", "Outfit", sans-serif;
+  letter-spacing: 0.02em;
+  transition: transform 0.12s ease, background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 8px 28px rgba(233, 90, 43, 0.22);
+}
+
+.primary:hover:not(:disabled) {
+  background: #f2663a;
+  box-shadow: 0 10px 34px rgba(233, 90, 43, 0.32);
+}
+
+.primary:active:not(:disabled) { transform: scale(0.98); }
+.primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+.primary:focus-visible,
+.ghost:focus-visible,
+.chip-btn:focus-visible,
+.v-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  padding: 0 20px;
+  min-height: var(--tap);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 15px;
+  font-family: inherit;
+  transition: border-color 0.2s, transform 0.12s ease;
+}
+
+.ghost:hover { border-color: var(--accent); }
+.ghost:active { transform: scale(0.98); }
+
+.loading-dots span { animation: blink 1.1s infinite; }
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.privacy { font-size: 13px; color: var(--muted); margin: 13px 0 0; line-height: 1.55; }
+
+/* ---------- steps / rubric ---------- */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+
+.steps li { display: flex; gap: 12px; align-items: flex-start; }
+.steps li > div { min-width: 0; }
+
+.step-n {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.steps li strong { display: block; font-size: 14.5px; }
+.steps li div span { color: var(--muted); font-size: 13.5px; display: block; overflow-wrap: break-word; }
+
+.rubric { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 7px; }
+
+.rubric li {
+  font-size: 13.5px;
+  padding: 8px 12px 8px 30px;
+  position: relative;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  overflow-wrap: break-word;
+}
+
+.rubric li::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+}
+
+.fine { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.55; }
+
+/* ---------- verdict: severity color ONLY on this top edge ---------- */
+.verdict { border-top: 3px solid var(--accent); }
+.verdict-education { border-top-color: var(--good); }
+.verdict-mixed { border-top-color: #fff600; }
+.verdict-promotion { border-top-color: #fa003f; }
+
+/* flex-basis, not a fixed min-width: the old `min-width: 240px` on both
+   children demanded 240 + 240 + 26px of gap, which is wider than the
+   content box of a 320px phone. min-width:0 lets them shrink; the
+   container query below then stacks them deliberately instead of letting
+   flex-wrap leave a stray gap. */
+.verdict-top {
+  display: flex;
+  gap: 26px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.verdict-head { flex: 1.2 1 240px; min-width: 0; }
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.offline-pill {
+  display: inline-block;
+  margin-left: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 2px 10px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.verdict-title {
+  font-size: clamp(22px, 6.4vw, 38px);
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+  font-family: "Space Grotesk", "Outfit", sans-serif;
+}
+
+.meter-wrap { flex: 1 1 240px; min-width: 0; max-width: 360px; }
+
+.pmeter-max { color: var(--faint); font-size: 15px; font-weight: 600; }
+
+.summary {
+  font-size: clamp(14.5px, 3.6vw, 15.5px);
+  line-height: 1.65;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-left: 3px solid var(--accent);
+  padding: clamp(12px, 3.4vw, 15px) clamp(13px, 3.8vw, 17px);
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+
+.flag-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+
+.flag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: #f7ddd0;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 13px;
+  max-width: 100%;
+}
+
+.flag-chip svg { flex: none; }
+
+.model-line {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 16px;
+  overflow-wrap: break-word;
+}
+
+.model-line strong { color: var(--ink); }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.actions-magnet { flex: 1 1 180px; min-width: 0; }
+.actions-magnet .primary { width: 100%; }
+.actions .ghost { flex: 0 0 auto; }
+
+/* ---------- transcript / claims ---------- */
+.transcript-text {
+  font-size: 15px;
+  line-height: 1.8;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  padding: clamp(13px, 3.6vw, 16px) clamp(14px, 4vw, 18px);
+  margin: 0;
+  /* Pasted text carries #hashtags, bare URLs and unbroken numbers. */
+  overflow-wrap: anywhere;
+}
+
+.hl {
+  background: rgba(233, 90, 43, 0.32);
+  color: #fff2e8;
+  padding: 1px 4px;
+  border-bottom: 2px solid var(--accent);
+}
+
+.claims { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+
+.claim {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  padding: 13px 15px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: transform 0.2s ease, border-color 0.2s;
+}
+
+.claim:hover { transform: translateX(3px); border-color: var(--accent-line); }
+
+.claim blockquote { margin: 0 0 9px; font-size: 15px; font-weight: 600; line-height: 1.55; overflow-wrap: anywhere; }
+
+.claim-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+
+.type-pill {
+  background: var(--ink);
+  color: #17100a;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 11px;
+}
+
+.mini-flag {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: #f7ddd0;
+  font-size: 12px;
+  padding: 3px 11px;
+}
+
+.reason { margin: 4px 0 0; font-size: 14px; color: var(--muted); line-height: 1.55; overflow-wrap: break-word; }
+
+/* ---------- next steps / verification ---------- */
+.next { margin: 0 0 6px; padding-left: 20px; display: grid; gap: 9px; font-size: 14.5px; line-height: 1.55; }
+.next li { overflow-wrap: break-word; }
+.next li::marker { color: var(--accent); }
+
+.sub-h { font-size: 15px; margin: 20px 0 10px; font-family: "Space Grotesk", "Outfit", sans-serif; }
+
+.verify { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.v-row {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  padding: 13px 15px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.v-row > div { min-width: 0; }
+.v-row p { margin: 6px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.55; overflow-wrap: break-word; }
+
+/* Label and status were bare inline siblings separated by an ad-hoc
+   margin-left. That produced three different results: an 8px gap in some
+   widths, none at all in others, and a ragged pill wrapped to its own line
+   under the longer labels. A flex row owns the spacing in one place and
+   keeps the pill beside the label whenever it fits. */
+.v-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.v-head strong { overflow-wrap: break-word; }
+
+/* Below ~320px of card width the longest label ("Official circular /
+   notice") plus the widest pill ("cannot verify") needs ~286px and will not
+   fit, so it wrapped to its own line — leaving two rows stacked and one
+   inline. Stack all three together instead of letting text length decide. */
+@container rcard (max-width: 320px) {
+  .v-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
+.v-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap);
+  white-space: nowrap;
+  flex: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.status {
+  display: inline-block;
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 11px;
+  white-space: nowrap;
+}
+
+.status-present { background: rgba(52, 211, 153, 0.12); border: 1px solid rgba(52, 211, 153, 0.45); color: var(--good); }
+.status-missing { background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.45); color: var(--bad); }
+.status-cannot_verify { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); color: var(--muted); }
+
+/* ---------- privacy / footer ---------- */
+.privacy-box { background: rgba(233, 90, 43, 0.05); border-color: var(--accent-line); }
+.privacy-box p { color: var(--muted); font-size: 14.5px; line-height: 1.65; margin: 0 0 10px; }
+.privacy-box p strong { color: var(--ink); }
+.disclaimer-line { font-weight: 700; color: var(--ink) !important; margin: 0 !important; }
+
+.footer {
+  padding: 22px var(--gutter) calc(30px + env(safe-area-inset-bottom, 0px));
+  font-size: 12.5px;
+  color: var(--faint);
+  text-align: center;
+  max-width: 1080px;
+  display: grid;
+  gap: 4px;
+  overflow-wrap: break-word;
+}
+
+/* ------------------------------------------------------------------
+   Component-level responsiveness (container queries).
+
+   The window can be wide while a card is still narrow — a verdict card
+   inside a one-column grid, or any card once the grid collapses below
+   880px. Media queries cannot see that, so the card's own inline size
+   drives these adaptations instead. .rcard is the container.
+   ------------------------------------------------------------------ */
+
+/* Caution meter drops under the headline instead of squeezing beside it.
+   flex-basis is axis-relative: the 240px set for the row layout becomes a
+   240px *height* once the axis flips, so it has to be reset here or both
+   children reserve a screenful of dead space. */
+@container rcard (max-width: 620px) {
+  .verdict-top { flex-direction: column; gap: 16px; }
+  .verdict-head, .meter-wrap { flex: 0 0 auto; }
+  .meter-wrap { max-width: none; width: 100%; }
+}
+
+/* Official-source rows stack: "Official page ->" is nowrap, so beside the
+   note it would leave under 120px of text column on a phone. */
+@container rcard (max-width: 480px) {
+  .v-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+}
+
+/* Buttons go full-width rather than sitting as a cramped pair. */
+@container rcard (max-width: 400px) {
+  .actions { flex-direction: column; align-items: stretch; }
+  .actions-magnet { flex: 0 0 auto; }
+  .actions .ghost { width: 100%; }
+}
+
+/* Sample chips read better as equal full-width rows than as three ragged
+   two-per-line fragments. */
+@container rcard (max-width: 460px) {
+  .sample-label { flex: 1 0 100%; }
+  .chip-btn { flex: 1 1 100%; justify-content: center; }
+}
+
+/* ------------------------------------------------------------------
+   Coarse pointers: no hover on phones, so hover-only affordances must not
+   leave a stuck state behind after a tap.
+   ------------------------------------------------------------------ */
+@media (hover: none) {
+  .chip-btn:hover { transform: none; }
+  .claim:hover { transform: none; }
+  .rcard-spot::before { opacity: 0 !important; }
+  .btn-shimmer:hover::after { animation: none; }
+}
+
+/* Short landscape viewports (a phone held sideways): the hero should not
+   eat the entire first screen. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .hero-title { font-size: clamp(26px, 5.4vw, 40px); }
+  .hero { padding-top: 0; }
+  .hero-pill { margin-bottom: 10px; }
+  .textarea { min-height: 96px; }
+}

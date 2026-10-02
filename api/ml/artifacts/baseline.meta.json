@@ -1,0 +1,8 @@
+{
+  "model": "tfidf-word+char_logreg",
+  "labels": [
+    "education",
+    "mixed",
+    "promotion"
+  ]
+}

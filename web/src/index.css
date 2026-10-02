@@ -1,0 +1,37 @@
+/* Base reset. App.css owns the theme, effects.css owns animation. */
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  /* 100dvh tracks the collapsing mobile URL bar; 100vh stays as fallback. */
+  min-height: 100dvh;
+  /* Belt-and-braces: any single stray wide child clips instead of
+     producing a horizontal scrollbar on the whole document. Layout rules
+     below are the real fix; this only catches regressions. */
+  overflow-x: clip;
+}
+
+html {
+  color-scheme: dark;
+  /* Stops iOS landscape from inflating text and blowing out the layout. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #0d0b09;
+  color: #f5f1e8;
+  -webkit-font-smoothing: antialiased;
+  /* Nothing here scrolls horizontally; re-tapping should never pan the page. */
+  overscroll-behavior-x: none;
+}
+
+img, svg, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+a { color: #e95a2b; }
