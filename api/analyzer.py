@@ -27,6 +27,14 @@ Classification:
   score == 1            -> mixed, unless the single flag is only
                            missing_disclosure (then education with a nudge).
 
+Scope gate (out_of_scope):
+  Promotional patterns can appear in ANY text, so a flag alone does not
+  prove financial content. When the rubric fires nothing AND the text
+  contains no finance-domain vocabulary, the tool is being fed content
+  it was not built for (pizza, football, weather). It says so instead of
+  returning a confident "education" verdict that nobody asked for.
+  Any single promo flag OR any finance term keeps the normal verdict.
+
 Claim types: return_promise | risk_denial | authority | urgency |
              testimonial | product_pitch | neutral_fact
 
@@ -54,7 +62,7 @@ from __future__ import annotations
 
 import re
 
-RUBRIC_VERSION = "rubric-v1.1"
+RUBRIC_VERSION = "rubric-v1.3"
 
 DISCLAIMER = "This is an awareness tool, not investment advice."
 
@@ -75,6 +83,25 @@ _PATTERNS: list[tuple[str, str, str, str]] = [
         r"100\s?%\s*(return|profit|guarantee|sure)|"
         r"daily\s+profit|weekly\s+profit|fixed\s+profit|risk-?free\s+profit|"
         r"\d+\s?(?:%|percent)\s*(profit|returns?)\s+(every|per|a)\s+(week|month|day)|"
+        # Noun-first phrasing ("a return of 60%") reverses the word order the
+        # pattern above assumes. The horizon token is what distinguishes a
+        # promise from edu-0003's "12% annualised returns over very long
+        # periods", so a bare number still must not fire.
+        r"(?:returns?|profit|gain|yield|payout)\s+(?:of|is|:)?\s*\d+\s?(?:%|percent)|"
+        r"\d+\s?(?:%|percent)\s*(?:return|profit|gain|yield)\s*"
+        r"(?:in|within|over|every|per|each)\s+"
+        r"(?:the\s+)?(?:next\s+)?\d+\s*(?:day|week|month|quarter|yr|year)|"
+        # Spelled-out horizon: "over the next three months".
+        r"(?:returns?|profit|gain|yield)\s+(?:of\s+)?\d+\s?(?:%|percent)"
+        r"[^.]{0,30}?(?:next|coming|following)\s+"
+        r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve|couple\s+of)"
+        r"[- ]*(?:day|week|month|quarter)|"
+        # Hinglish/Devanagari put the horizon BEFORE the percentage
+        # ("3 mahine me 60 percent", "तीन महीने में 60 प्रतिशत"), the reverse
+        # of the English order above. Corpus-checked: no education item hits.
+        r"\d+\s*(?:mahine|mahina|mahin|month|week|saal|year|din|day)[a-z]*\s*"
+        r"(?:me|in|में)\s*\d+\s*(?:%|percent)|"
+        r"(?:%|प्रतिशत)\s*(?:का\s*)?(?:रिटर्न|मुनाफा|लाभ)|"
         r"turn\s+[\d,]+\s+into|into\s+\d*\s*(lakh|crore)|into\s+double|"
         r"guaranteed\s+\d|pakka\s+(profit|return|munaafa?)|double\s+paisa|"
         r"paisa\s+double|pes[ae]\s+(double|dubbal|dubble)|double\s+pes[ae]|"
@@ -145,6 +172,11 @@ _PATTERNS: list[tuple[str, str, str, str]] = [
         r"(act\s+fast|hurry|last\s+chance|limited\s+(seats|offer|slots|time)|"
         r"only\s+\d+\s+(spots|seats|left|entries)|seats?\s+(left|are\s+filling)|"
         r"filling\s+(fast|up)|offer\s+ends|today\s+only|save\s+it\s+now|"
+        # Act-now purchase directive ("buy ... today"). Distinct from
+        # "today only" above: the instruction targets the trade itself,
+        # not an offer deadline. Corpus-checked: fires on no education item.
+        r"\b(?:buy|purchase|invest|start|apply|open)\w*\b[^.]{0,40}"
+        r"\b(?:today|right\s+now|aaj\s+hi|abhi)\b|"
         r"batch\s+closes?|closes?\s+tonight|\bmidnight\b|\btonight\b|"
         r"before\s+it('s| is)\s+too\s+late|miss\s+(this|the)\s+chance|"
         r"jaldi\s+kar|turant|aaj\s+hi|aaj\s+raat|aakhri\s+mauka|seem?it\s+samay|"
@@ -212,6 +244,36 @@ _GUARDS: dict[str, list[str]] = {
     # edu-0023: "turant zarurat na ho" (money you do not need urgently).
     "urgency_pressure": [r"तुरंत\s+जरूरत\s+न"],
 }
+
+# Domain vocabulary for the scope gate. Deliberately broad and bilingual:
+# a false positive here only means we run the normal rubric on an off-topic
+# text (the safe failure), while a false negative would hide a real scam
+# behind an "out of scope" banner. So: err toward matching.
+_FINANCE_RE = re.compile(
+    r"(stock|share|market|mutual\s*fund|\bsip\b|etf|index\s*fund|bond|debenture|"
+    r"equit\w+|portfolio|invest\w*|nivesh|trading|trade\b|demat|broker\w*|"
+    r"ipo|fund\s+house|asset\s+management|nav\b|emi\b|loan|insurance|insur\w*|"
+    r"retirement|pension|provident\s+fund|\bepf\b|tax\b|income\s+tax|gst\b|"
+    # edu-0048/0052/0060/0093: credit, commissions, expense ratios and
+    # finfluencer rules are finance content too. Without these the gate
+    # mislabelled 5 real education items as out_of_scope.
+    r"credit\s*score|penal\w+|commission|expense\s+ratio|finfluencer|"
+    r"rebalanc\w+|direct\s+plan|regular\s+plan|payout|demat\b|"
+    r"वितरक|कमीशन|खर्च\s+अनुपात|रेगुलर|डायरेक्ट|प्लान|डिस्काउंट|"
+    r"कम\s+रहता|लॉक-इन|अंश|म्यूचुअल\s+फंड|अनुपात|"
+    r"inflation|interest\s+rate|repo\s+rate|rbi|sebi|nse\b|bse\b|sensex|nifty|"
+    r"bank\w*|nbhb|nbfc|credit\s*card|debit\s*card|upi\b|neft|rtgs|"
+    r"profit|loss|earn\w*|income|salary|revenue|turnover|compound\w*|interest\b|"
+    r"dividend|yield|return\w*|fund\b|scheme\b|"
+    r"crypto|bitcoin|ethereum|blockchain|nft\b|forex|commodit\w+|gold\s+price|"
+    r"silver\s+price|real\s*estate|property\s+investment|"
+    r"pais[ae]\b|paise\b|rupay|rupee|lakh|crore|lakhs|crores|salary|paisa|"
+    r"बाज़ार|बाजार|शेयर|शेयरी|म्यूचुअल|फंड|निवेश|निवेशक|पैसा|पैसे|रुपया|रुपये|"
+    r"लाख|करोड़|करोड|मुनाफा|नुकसान|लाभ|रिटर्न|आय|वेतन|ब्याज|बैंक|बैंकिंग|"
+    r"मासिक|emi|ईएमआई|बीमा|सेवा|खाता|ऋण|कर|टैक्स|रिटायर|पेंशन|"
+    r"सेबी|आरबीआई|शेयर बाजार|सोना|चांदी)",
+    re.IGNORECASE,
+)
 
 _DISCLOSURE_RE = re.compile(
     r"(mutual\s+fund.*subject\s+to\s+market\s+risk|market\s+risk|"
@@ -330,7 +392,14 @@ def analyze_text(text: str) -> dict:
 
     score = sum(_FLAG_WEIGHTS[f] for f in flags_hit)
 
-    if score == 0:
+    # Scope gate: a promo pattern is topic-agnostic, so only fall back to
+    # out_of_scope when the rubric stayed silent AND the text reads as
+    # non-financial. Any flag at all means the text is worth rating.
+    in_scope = risky or bool(_FINANCE_RE.search(clean))
+
+    if not in_scope:
+        classification, caution = "out_of_scope", "not_applicable"
+    elif score == 0:
         classification, caution = "education", "low"
     elif score >= 5:
         classification, caution = "promotion", "high"
@@ -357,7 +426,10 @@ def analyze_text(text: str) -> dict:
             "label": "Risk disclosure",
             "status": "present" if disclosure_present else "missing",
             "url": OFFICIAL_SOURCES["investor_site"],
-            "note": "A risk disclaimer was found."
+            "note": "Not applicable: this text was not recognized as "
+            "financial content."
+            if classification == "out_of_scope"
+            else "A risk disclaimer was found."
             if disclosure_present
             else "No risk disclaimer found. Registered content must follow "
             "SEBI's advertisement code (CIR/2023/51); mutual-fund content "
@@ -391,6 +463,14 @@ def analyze_text(text: str) -> dict:
 def _summarize(
     classification: str, flags: set[str], n_claims: int, disclosure: bool
 ) -> str:
+    if classification == "out_of_scope":
+        return (
+            "This does not look like financial content, so it does not align "
+            "with what Sachet checks. We only rate financial promotion vs "
+            "education: investments, markets, savings, loans, insurance, or "
+            "similar. Nothing was flagged. Try a reel caption, a forwarded "
+            "message, or an explainer about money."
+        )
     if classification == "education":
         base = (
             "This looks like straightforward financial education. "
