@@ -43,6 +43,10 @@ ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 
 TIMEOUT_SEC = int(os.environ.get("SACHET_OCR_TIMEOUT", "30"))
 
+# A custom UA: some provider front doors (Cloudflare etc.) ban default
+# library user-agents with 403. See transcribe.py for the full story.
+_USER_AGENT = "Sachet/1.0 (+https://github.com/Kshitij-K-Singh/Sachet)"
+
 
 def _resolve_ocr_config() -> tuple[str, dict]:
     """Return (provider, config). Raises PipelineError(500) when unconfigured."""
@@ -97,13 +101,20 @@ def _http_json(
             detail = e.read().decode("utf-8", errors="replace")[:500]
         except Exception:
             detail = ""
-        if e.code in (401, 403):
+        if e.code == 401:
             raise PipelineError(
                 "OCR credentials were rejected. Check the vision API key.", 500
             )
-        if e.code == 429:
-            raise PipelineError("OCR is rate-limited right now. Retry in a moment.", 503)
-        raise PipelineError(f"OCR failed ({e.code}). {detail}".strip(), 502)
+        if e.code == 403:
+            # 403 from Google carries the actionable reason in the body
+            # ("billing not enabled", "API not enabled", ...): surface it
+            # instead of a generic credentials complaint.
+            raise PipelineError(
+                f"OCR refused ({e.code}). {detail}".strip()
+                if detail
+                else "OCR credentials were rejected. Check the vision API key.",
+                500,
+            )
     except urllib.error.URLError:
         raise PipelineError(
             f"Could not reach the {what}. Retry in a moment.", 502
@@ -131,7 +142,7 @@ def _ocr_via_google(image_bytes: bytes, api_key: str) -> list[dict]:
     req = urllib.request.Request(
         f"https://vision.googleapis.com/v1/images:annotate?key={quote_plus(api_key)}",
         data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "User-Agent": _USER_AGENT},
         method="POST",
     )
     data, _ = _http_json(req)
@@ -185,6 +196,7 @@ def _ocr_via_azure(image_bytes: bytes, endpoint: str, api_key: str) -> list[dict
         headers={
             "Ocp-Apim-Subscription-Key": api_key,
             "Content-Type": "application/octet-stream",
+            "User-Agent": _USER_AGENT,
         },
         method="POST",
     )
@@ -211,7 +223,10 @@ def _ocr_via_azure(image_bytes: bytes, endpoint: str, api_key: str) -> list[dict
     while True:
         poll = urllib.request.Request(
             op_location,
-            headers={"Ocp-Apim-Subscription-Key": api_key},
+            headers={
+                "Ocp-Apim-Subscription-Key": api_key,
+                "User-Agent": _USER_AGENT,
+            },
             method="GET",
         )
         data, _ = _http_json(poll)

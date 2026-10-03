@@ -71,6 +71,11 @@ _DEFAULT_OPENAI_ENDPOINT = "https://api.openai.com/v1"
 _DEFAULT_GROQ_MODEL = "whisper-large-v3-turbo"
 _DEFAULT_OPENAI_MODEL = "whisper-1"
 
+# Cloudflare (in front of api.groq.com) bans default library user-agents
+# ("Python-urllib/3.x" -> HTTP 403 "error code: 1010"). Identify the app
+# instead; a custom UA passes while the stdlib default does not.
+_USER_AGENT = "Sachet/1.0 (+https://github.com/Kshitij-K-Singh/Sachet)"
+
 
 def _run(cmd: list[str], timeout: int = 120) -> tuple[str, str]:
     """Run a subprocess (ffmpeg/ffprobe only)."""
@@ -181,6 +186,7 @@ def _stt_post(endpoint: str, api_key: str, body: bytes, content_type: str) -> di
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": content_type,
+            "User-Agent": _USER_AGENT,
         },
         method="POST",
     )
@@ -192,9 +198,15 @@ def _stt_post(endpoint: str, api_key: str, body: bytes, content_type: str) -> di
             detail = e.read().decode("utf-8", errors="replace")[:500]
         except Exception:
             detail = ""
-        if e.code in (401, 403):
+        if e.code == 401:
             raise PipelineError(
                 "Transcription credentials were rejected. Check the STT API key.", 500
+            )
+        if e.code == 403:
+            # Usually NOT the key: provider WAF/bot block or a key-scoped
+            # restriction. Surface the body so the cause is diagnosable.
+            raise PipelineError(
+                f"Transcription refused ({e.code}). {detail}".strip(), 502
             )
         if e.code == 429:
             raise PipelineError(
