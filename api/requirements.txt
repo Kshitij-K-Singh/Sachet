@@ -4,6 +4,10 @@ pydantic>=2.0
 pytest>=8.0
 httpx>=0.27
 python-multipart>=0.0.18
+# Media fetch for POST /api/ingest-url (paste-a-link). Shelled out to as a CLI
+# (see ingest.py), so this entry is what puts `yt-dlp` on PATH. Kept here
+# rather than assumed on the host: ffmpeg/ffprobe are still bare system deps.
+yt-dlp>=2025.1.1
 # ML runtime. Local dev uses CUDA torch; the Dockerfile installs CPU-only
 # torch instead (see Dockerfile) to keep the image small. Everything else
 # installs identically in both places.

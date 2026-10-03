@@ -1,16 +1,37 @@
 /* ------------------------------------------------------------------
-   Sachet theme. Taste-skill locks, documented here:
-   - SHAPE: all-sharp. Every corner on this page is radius 0. No pills,
-     no rounded cards, no circular dots. One system, no exceptions.
+   Sachet theme. Design decisions, documented here so they survive:
+   - SHAPE: one radius scale, applied by role. Small controls are lightly
+     rounded, large containers more so, and only the live audio meter and the
+     severity dot go fully round. Earlier this page was radius 0 everywhere;
+     that was a deliberate lock, but it made every edge read as a cutting
+     blade -- wrong for a tool people are meant to trust with money.
    - COLOR: one brand accent (#e95a2b, burnt orange) used identically
      everywhere. Green/amber/red appear ONLY as verdict severity signal
      (real semantic state, like a status light), nowhere else.
    - TYPE: Outfit (body) + Space Grotesk (display), self-hosted via
-     fontsource. No Inter default, no serif anywhere.
-   - THEME: dark-only, per explicit direction (premium dark-tech look).
+     fontsource. Devanagari gets its own family (Noto Sans Devanagari)
+     because neither Latin face carries the script, and this product's
+     primary content is Hindi. Evidence -- quotes, counts, durations -- is
+     set tabular so it reads as citable rather than as prose.
+   - THEME: dark is the default and the intended look, but light is a real
+     second theme rather than an inversion. Both are defined once here as
+     custom properties; every other file consumes tokens and never a literal.
+     Anything themed must use var(--tint) for its overlay washes instead of
+     rgb(var(--tint) / ...), which vanishes on a light background.
    ------------------------------------------------------------------ */
 
 :root {
+  color-scheme: dark;
+
+  /* Page canvas and the flat wash the WebGL backdrop sits on. */
+  --bg: #0d0b09;
+  /* RGB triplet, not a colour: overlay washes are written as
+     rgb(var(--tint) / <alpha>) so one variable re-tints ~20 rules at once.
+     Light theme flips it to the dark ink. */
+  --tint: 255 255 255;
+  --backdrop-scrim: rgba(13, 11, 9, 0.78);
+  --backdrop-vignette: rgba(0, 0, 0, 0.72);
+
   --ink: #f5f1e8;
   --muted: #b3a893;
   --faint: #8a7f6c;
@@ -18,12 +39,48 @@
   --accent-ink: #17100a;
   --accent-soft: rgba(233, 90, 43, 0.1);
   --accent-line: rgba(233, 90, 43, 0.45);
+  --accent-hover: #f2663a;
+  /* Text that sits on an accent wash (--accent-soft + --accent-line). Pale
+     peach over near-black in dark; a deep burnt orange over the light wash. */
+  --on-soft: #f7ddd0;
+  /* Highlighted transcript quote: the mark behind it, and the ink on top. */
+  --hl-bg: rgba(233, 90, 43, 0.32);
+  --hl-ink: #fff2e8;
   --good: #34d399;
   --warn: #fbbf24;
   --bad: #f87171;
   --card: rgba(19, 16, 12, 0.72);
   --line: rgba(245, 241, 232, 0.12);
-  --field: rgba(255, 255, 255, 0.05);
+  --line-strong: rgba(245, 241, 232, 0.2);
+  --field: rgb(var(--tint) / 0.05);
+
+  /* ---------- radius ----------
+     Four steps, chosen so adjacent steps are visible as different but never
+     as arbitrary. Anything not on this scale is a mistake, not a decision. */
+  --r-xs: 4px;    /* severity dot, tiny chips */
+  --r-sm: 6px;    /* inputs, selects, small buttons, status pills */
+  --r-md: 10px;   /* buttons, inline blocks, claim rows */
+  --r-lg: 16px;   /* cards and the panels that hold user content */
+  --r-pill: 999px; /* meters only -- a filled track, nothing else */
+
+  /* ---------- elevation ----------
+     Rounded corners only read as soft if the shadow also follows them. Two
+     steps: resting, and lifted on hover for the rows that are clickable. */
+  --lift-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --lift-2: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --lift-3: 0 24px 60px rgba(0, 0, 0, 0.55);
+
+  /* ---------- type ----------
+     One focus ring for the whole app. Ad-hoc per-component rings drifted. */
+  --focus: 0 0 0 2px rgba(233, 90, 43, 0.45);
+
+  /* Latin faces first, then Devanagari, then system. Order matters: a
+     Devanagari codepoint must land on Noto, not on the Latin face, or it
+     falls through to whatever the OS happens to have. */
+  --font-ui: "Outfit", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "Noto Sans Devanagari", "Outfit", system-ui, sans-serif;
+  /* For spans that are mostly or wholly Devanagari -- quotes, transcripts. */
+  --font-deva: "Noto Sans Devanagari", "Outfit", system-ui, sans-serif;
 
   /* ---------- responsive scale ----------
      One gutter, one card padding, one tap target. Every horizontal rhythm
@@ -33,6 +90,60 @@
   --gutter: clamp(14px, 4vw, 20px);
   --pad-card: clamp(16px, 4.4vw, 24px);
   --tap: 44px;
+}
+
+/* ---------- light theme ----------
+   Same accent, same radius scale, same severity semantics; only the surfaces
+   and ink change. Three deliberate differences from a naive inversion:
+   - --accent deepens. #e95a2b on cream is ~3.3:1, fine for a fill under
+     near-black label text but short of AA for accent-coloured link text.
+   - Severity colours darken for the same reason: the dark-theme green/amber
+     wash out completely on white.
+   - Elevation inverts from "shadow on dark" to "shadow plus a hairline",
+     because a soft dark shadow alone is nearly invisible on cream. */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f6f3ed;
+  --tint: 26 21 16;
+  /* Light scrim stays translucent enough that the orange pixel field reads as
+     texture, not wallpaper; cards keep their own surface and blur for contrast. */
+  --backdrop-scrim: rgba(246, 243, 237, 0.74);
+  --backdrop-vignette: rgba(120, 108, 92, 0.3);
+
+  --ink: #1c1712;
+  --muted: #5d5347;
+  --faint: #857a6b;
+  --accent: #c2410c;
+  --accent-ink: #fffaf5;
+  --accent-soft: rgba(194, 65, 12, 0.09);
+  --accent-line: rgba(194, 65, 12, 0.42);
+  --accent-hover: #9a3412;
+  --on-soft: #7c2d12;
+  --hl-bg: rgba(194, 65, 12, 0.16);
+  --hl-ink: #7c2d12;
+  --good: #047857;
+  --warn: #a16207;
+  --bad: #dc2626;
+  /* Deliberately NOT var(--tint): the tint flips to dark ink in light mode,
+     which is right for overlay washes but wrong for a surface. A card must
+     stay lighter than the page in both themes. */
+  --card: rgba(255, 255, 255, 0.86);
+  --line: rgba(26, 21, 16, 0.14);
+  --line-strong: rgba(26, 21, 16, 0.24);
+  --field: rgba(26, 21, 16, 0.045);
+
+  --lift-1: 0 1px 2px rgba(26, 21, 16, 0.1);
+  --lift-2: 0 12px 34px rgba(26, 21, 16, 0.12);
+  --lift-3: 0 18px 44px rgba(26, 21, 16, 0.16);
+  --focus: 0 0 0 2px rgba(194, 65, 12, 0.45);
+}
+
+/* Hindi-first reading order: when the interface itself is Devanagari, the
+   UI face must lead with Noto. Latin runs still pick up Outfit afterwards. */
+[data-lang="hi"] {
+  --font-ui: "Noto Sans Devanagari", "Outfit", system-ui, sans-serif;
+  --font-display: "Noto Sans Devanagari", "Outfit", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -48,7 +159,7 @@
   min-height: 100vh;
   min-height: 100dvh;
   color: var(--ink);
-  font-family: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -70,33 +181,48 @@
   min-height: 64px;
 }
 
-.brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
-.brand > div { min-width: 0; }
+/* ---------- logo ---------- */
+.sachet-logo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
 
-.brand-mark {
+.sachet-mark {
   width: 40px;
   height: 40px;
   flex: none;
-  display: grid;
-  place-items: center;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 22px;
-  font-weight: 700;
-  font-family: "Space Grotesk", "Outfit", sans-serif;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(233, 90, 43, 0.28));
 }
 
-.brand-name {
+.sachet-mark-plate { fill: var(--accent); }
+.sachet-mark-ink { fill: var(--accent-ink); }
+
+.sachet-word { display: flex; flex-direction: column; min-width: 0; }
+
+/* Title-case rather than the old letter-spaced SACHET caps: it reads as a
+   name instead of a product code, and it lets the tagline sit closer without
+   the two fighting for attention. */
+.sachet-word-name {
+  font-family: var(--font-display);
+  font-size: 20px;
   font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.14em;
-  font-family: "Space Grotesk", "Outfit", sans-serif;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
 
-.brand-sub { color: var(--muted); font-size: 12.5px; }
+.sachet-word-sub {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
 
 .track-badge {
   flex: none;
+  border-radius: var(--r-sm);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
   color: var(--accent);
@@ -107,15 +233,75 @@
   white-space: nowrap;
 }
 
+/* ---------- preference controls (theme + language) ----------
+   Logo stays left; the track badge and the controls sit together on the right.
+   margin-left:auto absorbs the free space, because space-between would
+   otherwise spread all three children evenly across the bar. */
+.topbar .track-badge { margin-left: auto; }
+
+.prefs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  height: var(--tap);
+  flex: none;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--muted);
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.icon-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--field);
+}
+.lang-globe { color: var(--faint); margin: 0 3px 0 5px; flex: none; }
+
+.lang-opt {
+  min-height: calc(var(--tap) - 12px);
+  padding: 0 11px;
+  border-radius: var(--r-xs);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color 0.18s, background 0.18s;
+}
+.lang-opt:hover { color: var(--ink); }
+/* aria-pressed is the source of truth; the class only mirrors it for paint. */
+.lang-opt.is-on { background: var(--accent); color: var(--accent-ink); }
+
+.icon-btn:focus-visible,
+.lang-opt:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
 .notice {
   width: calc(100% - var(--gutter) * 2);
+  border-radius: var(--r-lg);
   max-width: 1040px;
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
   padding: 11px clamp(14px, 3.6vw, 18px);
   font-size: 14px;
   margin: 10px 0 4px;
-  color: #f7ddd0;
+  color: var(--on-soft);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   overflow-wrap: break-word;
@@ -139,6 +325,30 @@
 .result-layout .verdict { grid-column: 1 / -1; }
 .result-layout .privacy-box { grid-column: 1 / -1; }
 
+/* The guidance card is the tallest thing after the claim list. Left to
+   auto-placement it took column one of its row and left column two empty, so
+   the bottom-right of every verdict screen was dead space. It spans the row
+   and divides its own content instead.
+
+   Named `guidance-card`, not `guidance`: `.guidance` already exists further
+   down this file as the question-classification answer well, and reusing it
+   silently overrode this card's padding and its list tiles' padding. */
+.result-layout .guidance-card { grid-column: 1 / -1; }
+
+.guidance-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 6px 32px;
+  align-items: start;
+}
+.guidance-cols .sub-h { margin-top: 0; }
+
+/* The three official-source checks are independent tiles, so they read as a
+   row of checks rather than a queue. They stack their link under the note
+   because a 260px tile cannot hold the label, the note and the link abreast. */
+.verify { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.verify .v-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+
 @media (max-width: 880px) {
   .layout, .result-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
 }
@@ -148,9 +358,10 @@
 /* ---------- PanelUI-style compound card ---------- */
 .rcard {
   background: var(--card);
+  border-radius: var(--r-lg);
   border: 1px solid var(--line);
   padding: var(--pad-card);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--lift-2);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   /* Component-level responsiveness: descendants below adapt to the card's
@@ -166,7 +377,7 @@
 .rcard-title {
   font-size: clamp(15px, 3.6vw, 17px);
   margin: 0 0 4px;
-  font-family: "Space Grotesk", "Outfit", sans-serif;
+  font-family: var(--font-display);
 }
 
 .rcard-desc { color: var(--muted); font-size: 13.5px; margin: 0; overflow-wrap: break-word; }
@@ -179,6 +390,7 @@
 
 .hero-pill {
   display: inline-block;
+  border-radius: var(--r-sm);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -198,7 +410,7 @@
   margin: 0 0 14px;
   letter-spacing: -0.02em;
   font-weight: 700;
-  font-family: "Space Grotesk", "Outfit", sans-serif;
+  font-family: var(--font-display);
 }
 
 .hero-title .accent {
@@ -222,7 +434,8 @@
 
 .chip-btn {
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--r-md);
+  background: rgb(var(--tint) / 0.05);
   color: var(--ink);
   padding: 0 14px;
   min-height: var(--tap);
@@ -245,6 +458,7 @@
 
 .textarea {
   width: 100%;
+  border-radius: var(--r-sm);
   border: 1px solid var(--line);
   padding: 13px 14px;
   /* 16px is the iOS zoom threshold. Anything smaller makes Safari
@@ -258,12 +472,12 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.textarea::placeholder { color: #a89c86; }
+.textarea::placeholder { color: var(--faint); }
 
 .textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(233, 90, 43, 0.35);
+  box-shadow: var(--focus);
 }
 
 .meta-row { display: flex; flex-wrap: wrap; gap: 2px 12px; justify-content: space-between; margin: 7px 0 13px; }
@@ -272,8 +486,202 @@
 
 .audio-row { margin-bottom: 15px; min-width: 0; }
 
+/* Paste-a-link row. Mirrors .audio-box's visual language (same border, icon
+   treatment, min-height) so the three inputs read as one control group. */
+.link-box {
+  display: flex;
+  border-radius: var(--r-md);
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: center;
+  border: 1px solid rgba(245, 241, 232, 0.18);
+  padding: 12px 14px;
+  background: rgb(var(--tint) / 0.03);
+}
+
+.link-box.busy { opacity: 0.7; }
+
+.link-fields {
+  display: flex;
+  flex: 1 1 260px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.link-input {
+  flex: 1 1 auto;
+  border-radius: var(--r-sm);
+  min-width: 0;
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 0 11px;
+  min-height: var(--tap);
+  /* 16px stops iOS Safari from zooming the viewport on focus. */
+  font-size: 16px;
+  font-family: inherit;
+}
+
+.link-input::placeholder { color: var(--muted); }
+
+.link-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+
+.link-go {
+  flex: none;
+  border-radius: var(--r-md);
+  min-height: var(--tap);
+  padding: 0 15px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.link-go:hover:not(:disabled) { border-color: var(--accent); background: rgba(233, 90, 43, 0.2); }
+
+.link-go:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+
+.link-go:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.link-hint { margin-top: 8px; }
+
+/* ---------------------------------------------------------- listen (tab audio)
+   Same visual language as .audio-box and .link-box: shared border treatment,
+   icon chip, --tap min-height. The live state swaps the dashed border for a
+   solid accent one so the transition is unmistakable at a glance. */
+
+.listen { margin-bottom: 15px; min-width: 0; }
+
+.listen-box {
+  display: flex;
+  border-radius: var(--r-md);
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: center;
+  border: 1px dashed rgba(245, 241, 232, 0.25);
+  padding: 12px 14px;
+  min-height: var(--tap);
+  background: rgb(var(--tint) / 0.03);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.listen-box.live {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.listen-icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+}
+
+.listen-main { flex: 1 1 190px; min-width: 0; }
+.listen-main strong { display: block; font-size: 14px; overflow-wrap: break-word; }
+.listen-main small { color: var(--muted); font-size: 12.5px; display: block; line-height: 1.45; margin-top: 2px; }
+
+/* Live level. The fill is driven by a sampled RMS, so it steps rather than
+   glides - honest about the fact that we are polling, not streaming. */
+.listen-meter {
+  position: relative;
+  border-radius: var(--r-pill);
+  height: 6px;
+  margin-top: 9px;
+  background: rgb(var(--tint) / 0.06);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.listen-meter-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  width: 0;
+  background: var(--accent);
+  transition: width 0.12s linear;
+}
+
+.listen-meter-tick {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--ink);
+  opacity: 0.7;
+}
+
+.listen-go {
+  flex: none;
+  border-radius: var(--r-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: var(--tap);
+  padding: 0 16px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.listen-go:hover:not(:disabled) { border-color: var(--accent); background: rgba(233, 90, 43, 0.2); }
+.listen-go:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+
+.listen-go:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.listen-go.stop {
+  background: transparent;
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.listen-go.stop:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: rgba(233, 90, 43, 0.14); }
+
+.listen-status { font-size: 13px; margin: 8px 0 0; line-height: 1.5; }
+.listen-status.heard { color: var(--good); }
+.listen-status.quiet { color: var(--warn); }
+
+.listen-error {
+  font-size: 13px;
+  color: var(--accent);
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.listen-note { font-size: 13px; color: var(--accent); margin: 8px 0 0; line-height: 1.5; }
+
+.listen-consent {
+  font-size: 12.5px;
+  color: var(--faint);
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
 .audio-box {
   display: flex;
+  border-radius: var(--r-md);
   flex-wrap: wrap;
   gap: 10px 12px;
   align-items: center;
@@ -281,7 +689,7 @@
   padding: 12px 14px;
   min-height: var(--tap);
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgb(var(--tint) / 0.03);
   transition: border-color 0.2s;
 }
 
@@ -319,6 +727,7 @@
 
 .hint-row select {
   background: var(--field);
+  border-radius: var(--r-sm);
   color: var(--ink);
   border: 1px solid var(--line);
   padding: 0 9px;
@@ -330,7 +739,7 @@
 .hint-row select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(233, 90, 43, 0.35);
+  box-shadow: var(--focus);
 }
 
 .audio-note {
@@ -345,7 +754,7 @@
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--tint) / 0.06);
   border: 1px solid var(--line);
   color: var(--muted);
   padding: 4px 11px;
@@ -354,7 +763,8 @@
 
 .error {
   background: rgba(248, 113, 113, 0.1);
-  color: #fecaca;
+  border-radius: var(--r-md);
+  color: var(--bad);
   border: 1px solid rgba(248, 113, 113, 0.45);
   padding: 10px 14px;
   font-size: 14px;
@@ -364,6 +774,7 @@
 
 .primary {
   width: 100%;
+  border-radius: var(--r-md);
   min-height: var(--tap);
   background: var(--accent);
   color: var(--accent-ink);
@@ -372,35 +783,47 @@
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  font-family: "Space Grotesk", "Outfit", sans-serif;
+  font-family: var(--font-display);
   letter-spacing: 0.02em;
   transition: transform 0.12s ease, background 0.2s, box-shadow 0.2s;
   box-shadow: 0 8px 28px rgba(233, 90, 43, 0.22);
 }
 
 .primary:hover:not(:disabled) {
-  background: #f2663a;
+  background: var(--accent-hover);
   box-shadow: 0 10px 34px rgba(233, 90, 43, 0.32);
 }
 
 .primary:active:not(:disabled) { transform: scale(0.98); }
-.primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+/* Deliberately not `opacity: 0.4`. Fading the whole button drags the accent
+   fill down to muddy brown and takes the dark label with it, so the primary
+   action reads as broken rather than not-yet-available. Neutralise the fill
+   and keep the label legible instead. */
+.primary:disabled {
+  cursor: not-allowed;
+  background: rgb(var(--tint) / 0.045);
+  color: var(--faint);
+  box-shadow: none;
+}
 
 .primary:focus-visible,
 .ghost:focus-visible,
 .chip-btn:focus-visible,
-.v-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.v-link:focus-visible,
+.link-go:focus-visible,
+.listen-go:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
 }
 
 .ghost {
   display: inline-flex;
+  border-radius: var(--r-md);
   align-items: center;
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgb(var(--tint) / 0.04);
   color: var(--ink);
   padding: 0 20px;
   min-height: var(--tap);
@@ -413,6 +836,13 @@
 
 .ghost:hover { border-color: var(--accent); }
 .ghost:active { transform: scale(0.98); }
+
+/* Ghost links share the button chrome, but must not wear link underlines. The
+   promotion-only SCORES report keeps the ghost shape with an accent edge so it
+   reads as an escalation, not a third equal action. */
+a.ghost { text-decoration: none; }
+.report { border-color: var(--accent-line); }
+.report:hover { border-color: var(--accent); background: var(--accent-soft); }
 
 .loading-dots span { animation: blink 1.1s infinite; }
 .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -451,9 +881,10 @@
 
 .rubric li {
   font-size: 13.5px;
+  border-radius: var(--r-md);
   padding: 8px 12px 8px 30px;
   position: relative;
-  background: rgba(255, 255, 255, 0.035);
+  background: rgb(var(--tint) / 0.035);
   border: 1px solid var(--line);
   overflow-wrap: break-word;
 }
@@ -465,6 +896,7 @@
   top: 14px;
   width: 8px;
   height: 8px;
+  border-radius: var(--r-pill);
   background: var(--accent);
 }
 
@@ -473,10 +905,53 @@
 /* ---------- verdict: severity color ONLY on this top edge ---------- */
 .verdict { border-top: 3px solid var(--accent); }
 .verdict-education { border-top-color: var(--good); }
-.verdict-mixed { border-top-color: #fff600; }
-.verdict-promotion { border-top-color: #fa003f; }
+.verdict-mixed { border-top-color: var(--warn); }
+.verdict-promotion { border-top-color: var(--bad); }
 /* Neutral grey: no verdict was reached, so it must not read as a pass. */
-.verdict-out_of_scope { border-top-color: #6b7280; }
+.verdict-out_of_scope { border-top-color: var(--faint); }
+/* A question is not a grade, so it borrows the neutral scope colour. */
+.verdict-question { border-top-color: var(--faint); }
+/* Fragments we refuse to rule on also read neutral, not "safe". */
+.verdict-insufficient_context { border-top-color: var(--faint); }
+
+/* Confidence. Deliberately understated: this is a low-information number
+   on purpose, and low values must not be dressed up as a green result. */
+.conf-wrap {
+  flex: 0 0 168px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.conf-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 700;
+}
+
+.conf-track {
+  flex: 1;
+  border-radius: var(--r-pill);
+  height: 5px;
+  background: rgb(var(--tint) / 0.09);
+  overflow: hidden;
+}
+
+.conf-fill { display: block; height: 100%; }
+
+.conf-fill.conf-low { background: var(--faint); }
+.conf-fill.conf-high { background: var(--accent); }
+
+.conf-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 30px;
+  text-align: right;
+}
 
 /* flex-basis, not a fixed min-width: the old `min-width: 240px` on both
    children demanded 240 + 240 + 26px of gap, which is wider than the
@@ -503,8 +978,9 @@
 
 .offline-pill {
   display: inline-block;
+  border-radius: var(--r-sm);
   margin-left: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--tint) / 0.06);
   border: 1px solid var(--line);
   color: var(--muted);
   padding: 2px 10px;
@@ -516,7 +992,7 @@
   font-size: clamp(22px, 6.4vw, 38px);
   margin: 0 0 8px;
   letter-spacing: -0.02em;
-  font-family: "Space Grotesk", "Outfit", sans-serif;
+  font-family: var(--font-display);
 }
 
 .meter-wrap { flex: 1 1 240px; min-width: 0; max-width: 360px; }
@@ -525,6 +1001,7 @@
 
 .summary {
   font-size: clamp(14.5px, 3.6vw, 15.5px);
+  border-radius: var(--r-md);
   line-height: 1.65;
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
@@ -538,11 +1015,12 @@
 
 .flag-chip {
   display: inline-flex;
+  border-radius: var(--r-md);
   align-items: center;
   gap: 7px;
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
-  color: #f7ddd0;
+  color: var(--on-soft);
   font-size: 13px;
   font-weight: 600;
   padding: 6px 13px;
@@ -551,14 +1029,23 @@
 
 .flag-chip svg { flex: none; }
 
-.model-line {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 0 0 16px;
-  overflow-wrap: break-word;
+/* Answers to a "question" classification. Deliberately plain: these are
+   arithmetic and regulation, not verdicts, so they must not read like the
+   chip/pitch language used for graded content. */
+.guidance {
+  margin: 0 0 18px;
+  padding: 0 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: clamp(14px, 3.4vw, 15px);
+  line-height: 1.6;
+  color: var(--ink);
 }
 
-.model-line strong { color: var(--ink); }
+.guidance li { padding-left: 4px; overflow-wrap: anywhere; }
+
+.guidance li::marker { color: var(--accent); font-weight: 700; }
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .actions-magnet { flex: 1 1 180px; min-width: 0; }
@@ -568,8 +1055,12 @@
 /* ---------- transcript / claims ---------- */
 .transcript-text {
   font-size: 15px;
-  line-height: 1.8;
-  background: rgba(255, 255, 255, 0.035);
+  /* Hindi dominates this surface, so it leads with the Devanagari face and
+     takes the taller line-height its below-baseline matras need. 1.9 is not
+     loose here: 1.55 is right for Latin and clips the vowel sign in "जोड़ें". */
+  font-family: var(--font-deva);
+  line-height: 1.9;
+  background: rgb(var(--tint) / 0.035);
   border: 1px solid var(--line);
   padding: clamp(13px, 3.6vw, 16px) clamp(14px, 4vw, 18px);
   margin: 0;
@@ -579,7 +1070,7 @@
 
 .hl {
   background: rgba(233, 90, 43, 0.32);
-  color: #fff2e8;
+  color: var(--hl-ink);
   padding: 1px 4px;
   border-bottom: 2px solid var(--accent);
 }
@@ -588,21 +1079,41 @@
 
 .claim {
   border: 1px solid var(--line);
+  border-radius: var(--r-md);
   border-left: 3px solid var(--accent);
   padding: 13px 15px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgb(var(--tint) / 0.03);
   transition: transform 0.2s ease, border-color 0.2s;
 }
 
-.claim:hover { transform: translateX(3px); border-color: var(--accent-line); }
+.claim {
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.claim:hover {
+  transform: translateX(3px);
+  border-color: var(--accent-line);
+  box-shadow: var(--lift-1);
+}
 
-.claim blockquote { margin: 0 0 9px; font-size: 15px; font-weight: 600; line-height: 1.55; overflow-wrap: anywhere; }
+.claim blockquote {
+  margin: 0 0 9px;
+  font-size: 15px;
+  font-weight: 600;
+  /* This is the verbatim quote -- the product's actual evidence, and usually
+     Hindi. Same reasoning as .transcript-text. */
+  font-family: var(--font-deva);
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+}
 
 .claim-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
 
 .type-pill {
   background: var(--ink);
-  color: #17100a;
+  border-radius: var(--r-sm);
+  /* Inverted chip: the label sits on --ink, so it takes the canvas colour.
+     A literal near-black here disappeared in light mode, where --ink is dark. */
+  color: var(--bg);
   font-size: 12px;
   font-weight: 700;
   padding: 3px 11px;
@@ -610,8 +1121,9 @@
 
 .mini-flag {
   background: var(--accent-soft);
+  border-radius: var(--r-sm);
   border: 1px solid var(--accent-line);
-  color: #f7ddd0;
+  color: var(--on-soft);
   font-size: 12px;
   padding: 3px 11px;
 }
@@ -620,21 +1132,26 @@
 
 /* ---------- next steps / verification ---------- */
 .next { margin: 0 0 6px; padding-left: 20px; display: grid; gap: 9px; font-size: 14.5px; line-height: 1.55; }
-.next li { overflow-wrap: break-word; }
+/* `anywhere`, not `break-word`: these are grid items, and break-word soft-wraps
+   without shrinking the min-content width. A long bare URL in a rubric step
+   (the SEBI intermediary link) therefore forced the track wider than the
+   viewport and got clipped. `anywhere` also collapses the intrinsic width. */
+.next li { overflow-wrap: anywhere; }
 .next li::marker { color: var(--accent); }
 
-.sub-h { font-size: 15px; margin: 20px 0 10px; font-family: "Space Grotesk", "Outfit", sans-serif; }
+.sub-h { font-size: 15px; margin: 20px 0 10px; font-family: var(--font-display); }
 
 .verify { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 
 .v-row {
   display: flex;
+  border-radius: var(--r-md);
   gap: 12px;
   justify-content: space-between;
   align-items: flex-start;
   border: 1px solid var(--line);
   padding: 13px 15px;
-  background: rgba(255, 255, 255, 0.025);
+  background: rgb(var(--tint) / 0.025);
 }
 
 .v-row > div { min-width: 0; }
@@ -664,6 +1181,7 @@
 
 .v-link {
   display: inline-flex;
+  border-radius: var(--r-md);
   align-items: center;
   gap: 6px;
   min-height: var(--tap);
@@ -676,6 +1194,7 @@
 
 .status {
   display: inline-block;
+  border-radius: var(--r-sm);
   flex: none;
   font-size: 11px;
   font-weight: 700;
@@ -686,7 +1205,7 @@
 
 .status-present { background: rgba(52, 211, 153, 0.12); border: 1px solid rgba(52, 211, 153, 0.45); color: var(--good); }
 .status-missing { background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.45); color: var(--bad); }
-.status-cannot_verify { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); color: var(--muted); }
+.status-cannot_verify { background: rgb(var(--tint) / 0.06); border: 1px solid var(--line); color: var(--muted); }
 
 /* ---------- privacy / footer ---------- */
 .privacy-box { background: rgba(233, 90, 43, 0.05); border-color: var(--accent-line); }

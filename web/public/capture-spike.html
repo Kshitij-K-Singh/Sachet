@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sachet - tab audio capture spike</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0; padding: 28px; background: #12100d; color: #f5f1e8;
+        font: 15px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      .sub { color: #9a9384; margin: 0 0 22px; font-size: 13px; }
+      button {
+        font: inherit; font-weight: 700; padding: 12px 20px; cursor: pointer;
+        background: #e95a2b; color: #12100d; border: 0; min-height: 44px;
+      }
+      button:disabled { opacity: .45; cursor: not-allowed; }
+      button.ghost { background: transparent; color: #e95a2b; border: 1px solid #e95a2b; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+      #status { padding: 12px 14px; border: 1px solid #3a352c; background: #1b1813; white-space: pre-wrap; }
+      .bar { height: 14px; background: #1b1813; border: 1px solid #3a352c; overflow: hidden; }
+      .bar > i { display: block; height: 100%; width: 0; background: #e95a2b; transition: width .1s linear; }
+      .kv { display: grid; grid-template-columns: 190px 1fr; gap: 2px 14px; margin-top: 14px; font-size: 13px; }
+      .kv b { color: #9a9384; font-weight: 400; }
+      .ok { color: #34d399; } .bad { color: #fa003f; } .warn { color: #fff600; }
+      audio { width: 100%; margin-top: 14px; }
+      ol { color: #9a9384; font-size: 13px; }
+      code { color: #e95a2b; }
+    </style>
+  </head>
+  <body>
+    <h1>Tab audio capture spike</h1>
+    <p class="sub">
+      Throwaway harness. If this works, the React hook will. Open a reel in
+      <em>another tab</em>, come back here, press Record, then pick that tab and
+      tick <strong>Share tab audio</strong>.
+    </p>
+
+    <div class="row">
+      <button id="go">Record 20s</button>
+      <button id="stop" class="ghost" disabled>Stop now</button>
+      <button id="reset" class="ghost" disabled>Reset</button>
+    </div>
+
+    <div class="bar"><i id="lvl"></i></div>
+    <div id="status">idle</div>
+    <div class="kv">
+      <b>getDisplayMedia</b><span id="k-api">-</span>
+      <b>secure context</b><span id="k-sec">-</span>
+      <b>MediaRecorder</b><span id="k-mr">-</span>
+      <b>audio tracks</b><span id="k-tracks">-</span>
+      <b>mimeType</b><span id="k-mime">-</span>
+      <b>peak level</b><span id="k-peak">-</span>
+      <b>clip size</b><span id="k-size">-</span>
+      <b>blob type</b><span id="k-blob">-</span>
+    </div>
+    <audio id="play" controls></audio>
+
+    <ol>
+      <li>Chrome or Edge on desktop. Firefox and Safari cannot capture tab audio.</li>
+      <li>In the picker choose <strong>Chrome Tab</strong> (not a window or the whole screen).</li>
+      <li>Tick <strong>Share tab audio</strong>. Without it the capture is silent.</li>
+      <li>On macOS only tab audio is available, never system audio. That is fine here.</li>
+      <li>Make sure the reel tab is actually playing <em>with sound</em> - many sites autoplay muted.</li>
+    </ol>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const st = $("status");
+      const say = (m, cls) => {
+        st.className = cls || "";
+        st.textContent = m;
+      };
+
+      // Same preference order the hook uses.
+      const MIMES = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+      ];
+
+      $("k-api").textContent = navigator.mediaDevices?.getDisplayMedia ? "present" : "MISSING";
+      $("k-sec").textContent = window.isSecureContext ? "yes" : "NO (needs https or localhost)";
+      $("k-sec").className = window.isSecureContext ? "ok" : "bad";
+      $("k-mr").textContent = typeof MediaRecorder !== "undefined" ? "present" : "MISSING";
+
+      let rec = null, stream = null, ctx = null, timer = null, tick = null;
+      let peak = 0, chunks = [], startedAt = 0;
+
+      function teardown() {
+        clearTimeout(timer); clearInterval(tick);
+        stream?.getTracks().forEach((t) => t.stop());
+        ctx?.close().catch(() => {});
+        rec = stream = ctx = timer = tick = null;
+        $("stop").disabled = true;
+      }
+
+      $("reset").onclick = () => {
+        teardown();
+        chunks = []; peak = 0; startedAt = 0;
+        $("lvl").style.width = "0%";
+        ["k-tracks", "k-mime", "k-peak", "k-size", "k-blob"].forEach((i) => ($(i).textContent = "-"));
+        $("play").removeAttribute("src");
+        $("reset").disabled = true; $("go").disabled = false;
+        say("idle");
+      };
+
+      $("stop").onclick = () => { if (rec && rec.state !== "inactive") rec.stop(); };
+
+      $("go").onclick = async () => {
+        $("go").disabled = true;
+        say("waiting for the picker...");
+        try {
+          // video:true is mandatory even though we only want the audio.
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true, audio: true, preferCurrentTab: true,
+          });
+        } catch (e) {
+          say("picker failed: " + e.name + "\n" + e.message, "bad");
+          $("go").disabled = false;
+          return;
+        }
+
+        const audio = stream.getAudioTracks();
+        $("k-tracks").textContent = audio.length;
+        $("k-tracks").className = audio.length ? "ok" : "bad";
+        stream.getVideoTracks().forEach((t) => t.stop());
+
+        if (!audio.length) {
+          say(
+            "NO AUDIO TRACK.\n\nYou picked a source without ticking 'Share tab audio'.\nPick it again and tick the checkbox next to 'Also share tab audio'.",
+            "bad"
+          );
+          teardown(); $("go").disabled = false;
+          return;
+        }
+
+        // Stopping the tab from the browser bar ends the track; end the recorder too.
+        audio[0].onended = () => { if (rec && rec.state !== "inactive") rec.stop(); };
+
+        const mime = MIMES.find((m) => MediaRecorder.isTypeSupported(m)) || "";
+        $("k-mime").textContent = mime || "(browser default)";
+        rec = new MediaRecorder(new MediaStream(audio), mime ? { mimeType: mime } : undefined);
+        chunks = [];
+        rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+        rec.onstop = () => {
+          const secs = ((performance.now() - startedAt) / 1000).toFixed(1);
+          teardown();
+          const blob = new Blob(chunks, { type: mime || "audio/webm" });
+          $("k-blob").textContent = blob.type;
+          $("k-size").textContent = (blob.size / 1024).toFixed(1) + " KB";
+          $("k-peak").textContent = peak.toFixed(3);
+          $("k-peak").className = peak > 0.02 ? "ok" : "warn";
+          $("play").src = URL.createObjectURL(blob);
+          $("reset").disabled = false;
+          say(
+            "captured " + secs + "s" + (peak > 0.02
+              ? "\nOK - audio was heard. Press play below."
+              : "\nSILENT - no level above 0.02. Either you forgot 'Share tab audio', or the tab is playing muted, or the stream is DRM-protected."),
+            peak > 0.02 ? "ok" : "warn"
+          );
+        };
+
+        // Level meter. Note: setInterval, not rAF - rAF is frozen while this tab
+        // is in the background, which it always is during capture.
+        try {
+          ctx = new AudioContext();
+          if (ctx.state === "suspended") await ctx.resume();
+          const an = ctx.createAnalyser();
+          an.fftSize = 2048;
+          ctx.createMediaStreamSource(new MediaStream(audio)).connect(an);
+          const buf = new Uint8Array(an.fftSize);
+          tick = setInterval(() => {
+            an.getByteTimeDomainData(buf);
+            let sum = 0;
+            for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+            const rms = Math.sqrt(sum / buf.length);
+            peak = Math.max(peak, rms);
+            $("lvl").style.width = Math.min(100, rms * 400) + "%";
+            if (ctx.state !== "running") say("AudioContext is " + ctx.state + " - the meter cannot work.", "warn");
+          }, 100);
+        } catch (e) {
+          say("level meter unavailable (" + e.message + ") - capture will still work.", "warn");
+        }
+
+        rec.start();
+        startedAt = performance.now();
+        $("stop").disabled = false;
+        timer = setTimeout(() => { if (rec && rec.state !== "inactive") rec.stop(); }, 20000);
+        say("recording... switch to the reel tab and make sure it is playing with sound.");
+      };
+    </script>
+  </body>
+</html>

@@ -2,11 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
     <meta name="description" content="Sachet — promotion-vs-education analyzer for financial content. Awareness tool, not investment advice." />
     <meta name="theme-color" content="#0d0b09" />
     <title>Sachet · Promotion-vs-Education Analyzer</title>
+    <script>
+      /* Runs before first paint. Without it the page renders dark, then snaps
+         to light once React mounts and reads the stored preference -- a visible
+         flash on every reload for anyone who chose the light theme. */
+      (function () {
+        try {
+          var t = localStorage.getItem("sachet.theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.dataset.theme = t;
+          }
+          var l = localStorage.getItem("sachet.lang");
+          if (l === "hi" || l === "en") {
+            document.documentElement.lang = l;
+            document.documentElement.dataset.lang = l;
+          }
+        } catch (e) {
+          /* storage blocked; defaults in :root and the provider apply */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

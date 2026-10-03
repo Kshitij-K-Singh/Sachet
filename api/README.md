@@ -8,16 +8,29 @@ cd api
 ```
 
 ## Contract v1 (only fields the UI displays)
-`POST /api/analyze` — body `{ "text": str(10..8000), "language_hint"?: str }`
+`POST /api/analyze` — body `{ "text": str(10..8000), "language_hint"?: str, "ui_language"?: "en" | "hi" }`
 → `{ classification, caution_level, caution_score, summary, claims[],
-     flags, flag_labels, verification[], disclaimer, rubric_version,
-     model? }`
+     flags, flag_labels, guidance[], verification[], disclaimer,
+     rubric_version, model? }`
+- `ui_language` localizes display prose only (summary, reasons, checklists,
+  verification notes, labels, disclaimer). Rubric codes, verbatim quotes,
+  and URLs never change; unknown values fall back to English.
 - `model`: shadow classifier second opinion `{ label, confidence }`,
   present when the LoRA adapter is deployed; never decides the verdict.
   Set `SACHET_MODEL=off` to disable (keeps tests fast).
-- `classification`: education | mixed | promotion | out_of_scope
+  Kept in the API for the eval track, **not rendered in the UI** — the data
+  is pre-review synthetic and at ~0.4 confidence it only told users our own
+  tool disagreed with itself.
+- `scope`: in_scope | out_of_scope | insufficient_context
+- `label`: promotion | educational | unclear  (`mixed` = educational + red_flags)
+- `classification`: education | mixed | promotion | out_of_scope |
+  insufficient_context | question
+- `confidence`: 0..1, auditable from observed evidence (see Confidence above)
+- `red_flags[]`: `{ category, label, quote (verbatim), note }`
+- `what_to_verify[]`: checks specific to the categories that actually fired
 - `caution_level`: low | medium | high | not_applicable
 - `claims[]`: `{ quote (verbatim), claim_type, flags[], reason }`
+- `guidance[]`: populated only for `classification: "question"`; empty otherwise
 - `verification[]`: `{ label, status (present|missing|cannot_verify), url, note }`
 
 ## Rubric v1.3 (sourced, Oct 1)
@@ -43,6 +56,100 @@ must never be hidden behind an out-of-scope banner. The vocabulary is
 deliberately broad and bilingual (English, Hinglish, Devanagari); a false
 positive only means the normal rubric runs on off-topic text, while a false
 negative would hide a real scam.
+
+### Evidence model (v1.5 — replaces the weighted score ladder)
+v1.3/v1.4 summed per-pattern weights and cut at fixed thresholds. That made
+the verdict a function of **which keywords happened to be written down**:
+
+| Input | Old score | Old verdict |
+|---|---|---|
+| "will it **double** in 2 years" | 0 | question |
+| "will it **triple** in 2 years" | 3 + 1 derived | mixed |
+| "will it **quadruple** in 2 years" | 0 | question |
+
+`tripl\w+` and `10x` were in the pattern list; `quadrupl\w+` was not. A
+*more extreme* claim produced a *gentler* verdict because one word was absent
+from a regex. A single match (3) plus the derived `missing_disclosure` (+1)
+was enough to cross a threshold, so one keyword decided the outcome.
+
+v1.5 counts **independent persuasion categories** instead:
+
+| Categories | Verdict | Meaning |
+|---|---|---|
+| ≥ 2 | `promotion` | a pattern, not a bad sentence |
+| 1 | `mixed` | one tactic = a claim, not a pattern |
+| 0 | `education` | no persuasion signal found |
+
+Thresholds are measured, not guessed. Category-count distribution over the
+254-item corpus:
+
+| Gold label | 0 cats | 1 cat | 2 cats | 3+ cats |
+|---|---|---|---|---|
+| education (95) | **95** | 0 | 0 | 0 |
+| mixed (71) | 0 | **59** | 12 | 0 |
+| promotion (88) | 0 | 3 | **55** | 30 |
+
+Corpus agreement 239/254 = **94.1%**, with education at 95/95 and no false
+positives into education. The 15 misses are all the 1-vs-2 category boundary
+on genuinely ambiguous funnel content.
+
+### Why this is stable
+- Repeating one tactic 5× does **not** change the verdict or the confidence.
+  Volume cannot manufacture strength.
+- A synonym swap cannot flip anything: all 8 variants of
+  `"will it {} in 2 years"` return identical output.
+- Escalation requires a genuinely *different* tactic, not another keyword in
+  the same one. `test_repeating_one_tactic_cannot_manufacture_a_pattern` and
+  `test_verdict_is_invariant_to_synonym_choice` pin both properties.
+
+### Confidence
+Auditable, not a model logit — a documented function of the evidence
+observed, so a reviewer can recompute it and argue with the inputs rather
+than the number. Promotion is the only branch that asserts a pattern and is
+the only one that scores above 0.6. Abstentions (`question`,
+`out_of_scope`, `insufficient_context`) return ≤0.5 by construction, and
+`mixed` caps at 0.55, so "I can't tell" is visibly weaker than "I checked".
+
+### Output shape
+Two orthogonal axes instead of one label:
+
+```
+scope  : in_scope | out_of_scope | insufficient_context
+label  : promotion | educational | unclear
+```
+
+`mixed` is not a third opinion — it is `label: "educational"` with a
+non-empty `red_flags` list, matching the brief's "mostly educational video
+with a hidden pitch". Also new: `red_flags[]` (each with a verbatim span),
+`what_to_verify[]`, `education_markers[]`, `persuasion_categories[]`,
+`confidence`.
+A user asking a question is not content to grade. "if I invest 100 rupees
+will it double in next 2 years" scored 0 and came back as
+`education` / "straightforward financial education" — a confident verdict
+about the user's own doubt, on content nobody submitted. Same failure mode as
+the scope gate above.
+
+v1.4 returns `classification: "question"` with `caution_level:
+"not_applicable"`, plus a `guidance[]` list that answers with arithmetic and
+regulation instead of a return forecast (predicting returns would be
+investment advice, which `DISCLAIMER` disclaims). It fires only when all of:
+- every clause in the text is interrogative (`_is_question`),
+- the text has finance-domain vocabulary (`_FINANCE_RE`), and
+- no **substantive** promo flag fired (`_PROMO_SUBSTANTIVE`).
+
+Those three gates are deliberate. Captions are routinely phrased as a
+question ("Paisa kaise lagaye? Mutual fund SIP start karo…") and must stay on
+the rubric path; and "should I join their group for guaranteed 10x returns?"
+is a question *about* a pitch, where grading the pitch is exactly what the
+user wants. Validated against all 254 corpus items → 0 reclassified, and
+`test_no_dataset_item_is_reclassified_as_a_question` guards that.
+
+### Second opinion (hidden in the UI, kept in the API)
+`model` is still returned so the eval track has evidence, but the UI no
+longer renders it. It is pre-review synthetic data (n=38, documented
+template-artifact risk in `ml/README.md`), so surfacing "disagrees" at 0.41
+confidence told users the tool contradicts itself on the very content it had
+just ruled on.
 
 ### Word order (fixed in v1.3)
 The `unrealistic_returns` pattern originally only matched a percentage
@@ -83,8 +190,117 @@ If the API is down, the UI shows a labelled offline demo response so the flow is
 
 ## Tests
 ```
-cd api && .venv/bin/python -m pytest -q   # 20 passed
+cd api && .venv/bin/python -m pytest -q   # 124 passed
+cd web && npm test                         # 20 passed
 ```
+
+## Tab audio capture (frontend only)
+
+`web/src/hooks/useTabCapture.ts` records the audio of a tab the user picks,
+via `navigator.mediaDevices.getDisplayMedia`. It POSTs to the **existing**
+`/api/transcribe` endpoint — there is no second ingest path, no gateway, and no
+new server surface. `.webm` is already in `ALLOWED_EXT`, so MediaRecorder's
+`audio/webm;codecs=opus` output goes straight through ffmpeg to whisper.
+
+Four browser facts drive the implementation, all noted at the top of the hook:
+
+1. `video: true` is mandatory even though only audio is wanted; the video track
+   is taken and immediately stopped.
+2. Tab audio is Chromium-only and needs "Share tab audio" ticked. Omitting it
+   yields a *silent* recording, not an error.
+3. The level meter uses `setInterval`, **not** `requestAnimationFrame`. During
+   capture the reel tab is foreground and Sachet is backgrounded, where rAF is
+   frozen solid. Sampling still works (throttled to ~1 Hz), which is all the
+   silence check needs.
+4. The browser's "Stop sharing" bar ends the track, so `track.onended` closes
+   the recorder explicitly rather than trusting the spec's auto-stop.
+
+### Why there is UA sniffing in here
+
+Gecko and WebKit both expose `getDisplayMedia` and both ignore the audio
+request — Firefox's own test suite asserts `getAudioTracks().length === 0` for
+`{video: true, audio: true}` — and the spec permits exactly that ("the user
+agent is allowed not to return audio even if the audio constraint is
+present"). So there is **no feature detection** that can tell you in advance,
+and an API-only check hands Firefox and Zen a working Listen button that can
+only ever record silence. Hence `browserFamily()`, matched in UA order because
+Edge and Opera both impersonate Chrome or Safari and are the browsers that *do*
+work.
+
+The same split applies to the failure copy: only Chromium's picker has a
+"Share tab audio" checkbox, so telling a Zen user to tick it is nonsense advice.
+`hasTabAudioCheckbox()` gates that message.
+
+Note also that `canCaptureTabAudio()` deliberately does not require
+`AudioContext`, unlike `isTabCaptureSupported()`. The audio graph only drives
+the level meter, which is already wrapped in its own try/catch; requiring one
+would refuse browsers that can in fact record.
+
+Silence is detected from a running peak RMS and reported as its own failure
+mode, distinct from "no audio track" and from the backend's "no speech". The
+three need different fixes, so they get different messages.
+
+`web/public/capture-spike.html` (`/capture-spike.html`) is a standalone
+harness for verifying capture in a real browser. It is the one part of this
+flow that cannot be covered by automated tests — `getDisplayMedia` needs a real
+picker and a real gesture.
+
+Two limits worth stating plainly: the flow is two steps (transcript lands in the
+textarea for review, then the user analyses) because tab audio is the noisiest
+input the app takes and whisper-base will occasionally mishear it; and the
+recorded audio is discarded as soon as transcription finishes.
+
+## Link ingest (paste a reel URL)
+
+`POST /api/ingest-url` — JSON `{ "url": str, "language_hint"?: "auto"|"hi"|"en" }`
+→
+`{ transcript, detected_language, duration_sec, model, source, title,
+truncated, dropped_chars }`.
+
+`source` is `"captions"` or `"media"`, i.e. which of two paths ran:
+
+1. **captions** — `yt-dlp --write-auto-subs --skip-download`, then a VTT
+   parser. Seconds, no ffmpeg, no Whisper CPU. This is the common case on
+   YouTube and it is why link import is not just the upload path with extra
+   steps.
+2. **media** — download the audio-only stream (`--max-filesize` capped) and run
+   the normal `transcribe_file()` pipeline.
+
+Both paths route language through `transcribe.normalize_transcript()`, so a reel
+reports the same `detected_language` whether it arrived as a link or an upload.
+
+The duration cap is checked from metadata **before** any download, so a
+20-minute video is rejected without pulling it. Transcripts longer than
+`MAX_ANALYZE_CHARS` are clipped and reported via `truncated` / `dropped_chars`
+rather than silently truncated, because `/api/analyze` would clip them anyway
+and a verdict computed on part of a reel is worse than an honest warning.
+
+### Security
+
+This endpoint makes the server fetch a user-supplied URL, so it is an SSRF
+sink. Gates, in order, all before the first byte moves:
+
+- **platform allowlist** (`ingest._ALLOWED_HOSTS`) — the only control that
+  actually bounds the blast radius, since yt-dlp resolves DNS and follows
+  redirects itself and we never see post-redirect hops. Host matching is
+  anchored on `.` so `notyoutube.com` cannot pass as `youtube.com`.
+- **resolved-IP check** (`ingest._ip_is_blocked`) — rejects loopback, private,
+  link-local (incl. `169.254.169.254` cloud metadata), CGNAT, multicast and
+  reserved ranges, after unwrapping IPv4-mapped (`::ffff:127.0.0.1`) and
+  6to4 forms.
+- scheme allowlist (`http`/`https`), embedded-credential rejection, length cap.
+- `--ignore-config` so a host `~/.config/yt-dlp` cannot inject options.
+- `SACHET_MAX_CONCURRENT_INGEST` semaphore bounds concurrent fetches; overflow
+  gets a 503 rather than piling up.
+
+Adding a host to `_ALLOWED_HOSTS` is a security decision, not a config change.
+There is **no authentication and no rate limiting** on this API, so until that
+exists treat the allowlist as the only thing standing between a public user and
+your network's private address space.
+
+Login-gated platforms are not supported: yt-dlp would need the user's cookies,
+which collides with the "no accounts, nothing stored" promise. Instagram reels
+behind a login will return an explanatory 400.
 
 ## Screenshot OCR (EasyOCR, local)
 
@@ -109,4 +325,26 @@ script to Devanagari, and the rubric covers Latin-Hindi stems
 
 Setup (one time): `git clone whisper.cpp`, `cmake --build` (needs
 cmake/g++/ffmpeg), then `models/download-ggml-model.sh base`.
-Binaries live in `api/whisper.cpp/` (build output, not source).
+Binaries live in `api/whisper.cpp/` (build output, not source). The root
+`Dockerfile` does all of the above for you and is the recommended setup.
+
+## Docker
+
+`docker build -t sachet-api .` from the repo root, then
+`docker run --rm -p 8000:8000 sachet-api`.
+
+Three stages (`whisper` / `deps` / `runtime`). Notes worth knowing before you
+change it:
+
+- `GGML_NATIVE=OFF` is mandatory. whisper.cpp defaults to `-march=native`, so
+  a binary built on an AVX-512 host dies with SIGILL elsewhere.
+- torch is installed CPU-only from the PyTorch CPU index *before*
+  `requirements.txt`, which does not pin it — otherwise the CUDA build and its
+  driver libraries land in the image.
+- ffmpeg is apt-installed in the **runtime** stage. Copying `/usr/bin/ffmpeg`
+  out of the deps stage would not work: it would not resolve `libavcodec`.
+- The HuggingFace cache is warmed at build time so the shadow classifier does
+  not need network on its first request.
+- One uvicorn worker by design. Whisper is CPU-bound and `ingest.MAX_CONCURRENT`
+  bounds fetches inside the process; more workers multiply both. Scale with
+  replicas.

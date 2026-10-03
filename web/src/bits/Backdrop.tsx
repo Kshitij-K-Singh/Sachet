@@ -17,7 +17,15 @@ function useReducedMotion(): boolean {
 /* Full-viewport PixelBlast backdrop (React Bits "Pixel Blast", squares,
    brand burnt-orange). Lazy-loaded so the WebGL bundle never blocks first
    paint. Under reduced motion the canvas never mounts; a static field
-   shows instead. A scrim keeps text contrast safe over the animation. */
+   shows instead. A scrim keeps text contrast safe over the animation.
+
+   Tuned right down on purpose. It was density 0.95 under a 0.52 scrim, which
+   put a near-solid orange dot field behind every word on the page -- it read as
+   static rather than texture, and it spent the accent colour as wallpaper.
+   That matters beyond taste: #e95a2b carries meaning on this page (the
+   product's own voice, and the warning state), and a page-wide field of it
+   dilutes exactly the signal the rubric depends on. Atmosphere, not
+   attention. */
 export default function Backdrop() {
   const reduce = useReducedMotion();
 
@@ -29,8 +37,8 @@ export default function Backdrop() {
             variant="square"
             pixelSize={6}
             color="#e95a2b"
-            patternScale={3.75}
-            patternDensity={0.95}
+            patternScale={4.4}
+            patternDensity={0.34}
             pixelSizeJitter={0.5}
             enableRipples
             rippleSpeed={0.4}

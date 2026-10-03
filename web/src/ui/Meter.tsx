@@ -9,6 +9,10 @@ interface MeterProps {
   max?: number;
   level: MeterLevel;
   label: string;
+  /** Display text for the level and the Low/Medium/High scale. The `level`
+      code still drives colour and fill; only these visible words translate. */
+  levelText: string;
+  scale: [string, string, string];
 }
 
 const LEVEL_COLOR: Record<MeterLevel, string> = {
@@ -19,7 +23,7 @@ const LEVEL_COLOR: Record<MeterLevel, string> = {
 
 /* Measurement on a fixed scale (PanelUI "Meter"), with an animated fill
    and counting score (Rare UI "Animated Counter"). */
-export default function Meter({ value, max = 10, level, label }: MeterProps): ReactElement {
+export default function Meter({ value, max = 10, level, label, levelText, scale }: MeterProps): ReactElement {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   const [w, setW] = useState(0);
 
@@ -33,7 +37,7 @@ export default function Meter({ value, max = 10, level, label }: MeterProps): Re
       <div className="pmeter-top">
         <span className="pmeter-level" style={{ color: LEVEL_COLOR[level] }}>
           <span className="pmeter-dot" />
-          {label}: <strong>{level.toUpperCase()}</strong>
+          {label}: <strong>{levelText}</strong>
         </span>
         <span className="pmeter-score">
           <CountUp value={value} />
@@ -50,9 +54,9 @@ export default function Meter({ value, max = 10, level, label }: MeterProps): Re
         </div>
       </div>
       <div className="pmeter-scale">
-        <span>Low</span>
-        <span>Medium</span>
-        <span>High</span>
+        <span>{scale[0]}</span>
+        <span>{scale[1]}</span>
+        <span>{scale[2]}</span>
       </div>
     </div>
   );

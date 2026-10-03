@@ -16,7 +16,7 @@
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  background: #0d0b09;
+  background: var(--bg);
   pointer-events: none;
 }
 
@@ -25,17 +25,21 @@
   inset: 0;
 }
 
+/* Heavier than a typical scrim on purpose. The field needs to sit clearly
+   behind the content, not compete with it -- see the note in Backdrop.tsx.
+   Both layers are themed: on light the scrim goes to near-opaque cream so the
+   orange field reads as a faint tint instead of a dark void. */
 .backdrop-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(13, 11, 9, 0.52);
+  background: var(--backdrop-scrim);
 }
-
 .backdrop-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 120% 90% at 50% 10%, transparent 55%, rgba(0, 0, 0, 0.6) 100%);
+  background: radial-gradient(ellipse 120% 90% at 50% 8%, transparent 42%, var(--backdrop-vignette) 100%);
 }
+
 
 /* ---------- Scroll progress: CSS scroll-driven, zero JS listeners */
 .scroll-progress {
@@ -45,7 +49,7 @@
   right: 0;
   height: 3px;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--tint) / 0.06);
 }
 
 .scroll-progress-bar {
@@ -132,6 +136,7 @@
 
 .pmeter-dot {
   width: 10px;
+  border-radius: var(--r-pill);
   height: 10px;
   flex: none;
   background: currentColor;
@@ -146,20 +151,22 @@
 
 .pmeter-track {
   position: relative;
+  border-radius: var(--r-pill);
   height: 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgb(var(--tint) / 0.08);
+  border: 1px solid rgb(var(--tint) / 0.1);
   overflow: hidden;
 }
 
 .pmeter-fill {
   height: 100%;
+  border-radius: var(--r-pill);
   transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.pmeter-fill.low { background: #34d399; }
-.pmeter-fill.medium { background: #fff600; }
-.pmeter-fill.high { background: #fa003f; }
+.pmeter-fill.low { background: var(--good); }
+.pmeter-fill.medium { background: var(--warn); }
+.pmeter-fill.high { background: var(--bad); }
 
 .pmeter-ticks {
   position: absolute;
@@ -209,7 +216,7 @@
   bottom: 0;
   width: 45%;
   left: -60%;
-  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  background: linear-gradient(105deg, transparent, rgb(var(--tint) / 0.45), transparent);
   transform: skewX(-18deg);
 }
 

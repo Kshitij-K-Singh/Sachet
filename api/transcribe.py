@@ -91,31 +91,39 @@ def _whisper(wav: Path, language: str | None) -> str:
     return _clean(stdout)
 
 
+def normalize_transcript(text: str, language_hint: str = "auto") -> tuple[str, str]:
+    """Apply an explicit hint plus script routing to raw text.
+
+    Shared by the audio path (decoder output) and the paste-a-link path (caption
+    track text) so both classify language identically -- otherwise the same reel
+    could report a different detected_language depending on how it arrived.
+
+    Returns (text, detected_language).
+    """
+    if language_hint == "hi":
+        return transliterate(text), "hi"
+    if language_hint == "en":
+        return text, "en"
+    if _URDU_RE.search(text):
+        # Whisper spells Hindi words correctly but in the wrong script.
+        return transliterate(text), "hi"
+    if _DEVA_RE.search(text):
+        return text, "hi"
+    return text, "en"
+
+
 def transcribe_file(src: Path, language_hint: str = "auto") -> dict:
     """Full pipeline for one uploaded file. Raises PipelineError."""
     if not WHISPER_BIN.exists() or not MODEL_PATH.exists():
         raise PipelineError("Transcription engine not installed on this server.", 500)
 
+    decoder_lang = {"hi": "hi", "en": "en"}.get(language_hint)
     with tempfile.TemporaryDirectory(prefix="sachet-") as tmp:
         wav = Path(tmp) / "audio.wav"
         duration = extract_wav(src, wav)
+        raw = _whisper(wav, decoder_lang)
 
-        if language_hint == "hi":
-            transcript = transliterate(_whisper(wav, "hi"))
-            detected = "hi"
-        elif language_hint == "en":
-            transcript = _whisper(wav, "en")
-            detected = "en"
-        else:
-            transcript = _whisper(wav, None)
-            if _URDU_RE.search(transcript):
-                transcript = transliterate(transcript)
-                detected = "hi"
-            elif _DEVA_RE.search(transcript):
-                detected = "hi"
-            else:
-                detected = "en"
-
+    transcript, detected = normalize_transcript(raw, language_hint)
     if not transcript:
         raise PipelineError("No speech detected in that clip.", 400)
     return {

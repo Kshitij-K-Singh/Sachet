@@ -14,16 +14,15 @@ html, body, #root {
 }
 
 html {
-  color-scheme: dark;
   /* Stops iOS landscape from inflating text and blowing out the layout. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 body {
-  font-family: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #0d0b09;
-  color: #f5f1e8;
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   /* Nothing here scrolls horizontally; re-tapping should never pan the page. */
   overscroll-behavior-x: none;
@@ -34,4 +33,4 @@ img, svg, video, canvas {
   height: auto;
 }
 
-a { color: #e95a2b; }
+a { color: var(--accent); }
