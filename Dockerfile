@@ -40,7 +40,7 @@ ARG WHISPER_MODEL
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates cmake g++ git make \
+      ca-certificates cmake curl g++ git make \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -62,7 +62,8 @@ RUN cmake -B build \
 # RPATH resolves them, rather than relying on LD_LIBRARY_PATH in the runtime.
 RUN find build/bin -name '*.so*' -exec install -m 0755 {} /out/build/bin/ \; || true
 
-RUN curl -fsSL -o "/out/models/${WHISPER_MODEL}" \
+RUN mkdir -p /out/models \
+ && curl -fsSL -o "/out/models/${WHISPER_MODEL}" \
       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${WHISPER_MODEL}" \
  && test -s "/out/models/${WHISPER_MODEL}"
 
@@ -82,10 +83,17 @@ COPY api/requirements.txt /tmp/requirements.txt
 
 RUN python -m venv /opt/venv
 
-# CPU-only torch first: the later `pip install -r` then finds its requirement
-# already satisfied instead of resolving back to the CUDA wheel.
+# CPU-only torch + torchvision together, pinned as a pair: they ship matching
+# C++ ABIs and must come from the same CPU index. Installing torch alone and
+# letting `pip install -r` pull torchvision from PyPI mixes a CPU torch with a
+# CUDA torchvision, which fails at import with
+# `RuntimeError: operator torchvision::nms does not exist`.
+# Keep the versions in lockstep (torch 2.8.0 <-> torchvision 0.23.0). The later
+# `pip install -r` then finds both requirements already satisfied and keeps
+# the CPU wheels instead of resolving back to CUDA.
 RUN pip install --upgrade pip \
- && pip install torch --index-url https://download.pytorch.org/whl/cpu \
+ && pip install --index-url https://download.pytorch.org/whl/cpu \
+      "torch==2.8.0" "torchvision==0.23.0" \
  && pip install -r /tmp/requirements.txt
 
 # Pre-fetch the MuRIL base model. Otherwise the shadow classifier reaches for
@@ -93,18 +101,22 @@ RUN pip install --upgrade pip \
 # infer.py already degrades gracefully when the LoRA adapter is absent, but a
 # missing *base* model is a hard error. Deliberately a one-liner rather than a
 # heredoc, so the build needs no BuildKit-specific syntax.
-RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('google/muril-base-cased', allow_patterns=['config.json','modules.json','generation_config.json','tokenizer*','vocab*','special_tokens_map.json','sentencepiece*','model.safetensors'])"
+RUN python -c "from pathlib import Path; from huggingface_hub import snapshot_download; p=Path(snapshot_download('google/muril-base-cased', allow_patterns=['config.json','modules.json','generation_config.json','tokenizer*','vocab*','special_tokens_map.json','sentencepiece*','model.safetensors','pytorch_model.bin'])); assert any((p / name).is_file() for name in ('model.safetensors','pytorch_model.bin')), 'MuRIL model weights were not downloaded'"
 
 # yt-dlp is a console script from requirements.txt, which is what puts it on
 # PATH for ingest.py; assert it here so a missing entry fails the build, not
-# the first paste.
-RUN python -c "import fastapi, uvicorn, torch, easyocr, yt_dlp" \
+# the first paste. Import torchvision explicitly too: a torch/torchvision ABI
+# mismatch surfaces here, not on the first OCR request. `test -s` on a
+# directory is meaningless, so assert the HF cache dir is non-empty instead.
+RUN python -c "import fastapi, uvicorn, torch, torchvision, easyocr, yt_dlp; import torchvision.ops; print(torch.__version__, torchvision.__version__)" \
  && yt-dlp --version \
- && test -s /opt/hf
+ && test -n "$(ls -A /opt/hf)"
 
 
 # --------------------------------------------------------------------- runtime --
 FROM python:${PYTHON_VERSION}-slim AS runtime
+
+ARG WHISPER_MODEL
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -116,8 +128,11 @@ ENV PYTHONUNBUFFERED=1 \
 # ffmpeg/ffprobe are hard runtime dependencies: transcribe.py shells out to both
 # with no Python fallback. libgomp1 is torch's OpenMP runtime -- without it
 # `import torch` warns and easyocr's detection passes fail.
+# libglib2.0-0 is cv2's (opencv-headless, via easyocr) loader dependency, which
+# python:slim does not ship. ca-certificates is needed by yt-dlp and
+# huggingface_hub for HTTPS at runtime.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg libgomp1 \
+ && apt-get install -y --no-install-recommends ffmpeg libgomp1 libglib2.0-0 ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && ffmpeg -version > /dev/null \
  && ffprobe -version > /dev/null
@@ -130,9 +145,17 @@ COPY --from=deps /opt/hf /opt/hf
 COPY --from=whisper /out /app/whisper.cpp
 
 WORKDIR /app
-COPY api/*.py ./
+# Explicit file list on purpose: `api/*.py` would also ship test_*.py,
+# pytest fixtures and local tooling into the production image.
+COPY api/main.py api/analyzer.py api/errors.py api/ingest.py api/ocr.py api/transcribe.py api/transliterate.py ./
 COPY api/ml ./ml
 COPY api/data ./data
+
+# Runtime smoke test as root before dropping privileges: catches a missing
+# system lib (libglib for cv2, libgomp for torch) here, not on first request.
+RUN python -c "import torch, torchvision.ops, cv2, PIL.Image, fastapi, transformers, peft; print('runtime ok', torch.__version__)" \
+ && test -x /app/whisper.cpp/build/bin/whisper-cli \
+ && test -s "/app/whisper.cpp/models/${WHISPER_MODEL}"
 
 RUN chmod 0755 /app/whisper.cpp/build/bin/whisper-cli \
  && useradd --create-home --uid 10001 sachet \

@@ -9,6 +9,10 @@
 **/.pytest_cache
 **/.venv
 api/venv
+api/.venv
+# Test files are not COPY'd into the runtime image (Dockerfile uses an
+# explicit file list), so keep them out of the build context too.
+api/test_*.py
 # The image clones whisper.cpp at a pinned commit, so never send the local
 # submodule checkout (source, build tree, and models) as build context.
 api/whisper.cpp
