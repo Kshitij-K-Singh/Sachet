@@ -23,6 +23,7 @@ Run:  uvicorn main:app --reload --port 8000
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 from typing import Literal
@@ -40,12 +41,21 @@ from transcribe import ALLOWED_EXT, MAX_BYTES, transcribe_file
 
 app = FastAPI(title="Sachet API", version="0.1.0")
 
+# Extra browser origins (e.g. the deployed frontend) via comma-separated
+# SACHET_CORS_ORIGINS. Local Vite origins stay default so `npm run dev`
+# keeps working with no env set.
+_CORS_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("SACHET_CORS_ORIGINS", "").split(",")
+    if o.strip()
+] or [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
