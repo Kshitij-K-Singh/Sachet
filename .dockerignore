@@ -1,6 +1,5 @@
-# Build context hygiene. The Dockerfile clones whisper.cpp itself at a pinned
-# commit, so the local submodule copy (plus its 148 MB model and build tree)
-# must stay out of the context or every build uploads ~1 GB for nothing.
+# Build context hygiene. Transcription and OCR are hosted APIs, so no
+# local model checkouts, build trees, or weight files may enter the context.
 
 .git
 .gitignore
@@ -13,9 +12,6 @@ api/.venv
 # Test files are not COPY'd into the runtime image (Dockerfile uses an
 # explicit file list), so keep them out of the build context too.
 api/test_*.py
-# The image clones whisper.cpp at a pinned commit, so never send the local
-# submodule checkout (source, build tree, and models) as build context.
-api/whisper.cpp
 
 # Frontend: not part of the API image. `web` is built and served separately.
 web

@@ -27,22 +27,24 @@ npm run dev
 ```
 
 Open the local URL printed by Vite. Vite proxies `/api` requests to the local
-API. Audio/video transcription additionally needs `ffmpeg` and the bundled
-Whisper.cpp executable and base model. Screenshot OCR and the optional model
-second opinion use local model packages/artifacts.
+API. Audio/video transcription and screenshot OCR use hosted APIs — set
+`GROQ_API_KEY` (or `OPENAI_API_KEY`) and `GOOGLE_VISION_KEY` (or Azure
+vision keys); the optional MuRIL second opinion needs the ML extras
+(`pip install -r api/requirements-ml.txt`).
 
 ### Or run the API in Docker
 
-This is the path that actually works on a clean machine — it installs ffmpeg,
-builds Whisper.cpp, downloads the model, and pre-fetches the shadow-classifier
-weights, none of which the `pip install` route sets up for you.
+This is the path that actually works on a clean machine — it installs ffmpeg
+and the slim Python runtime; STT/OCR keys are passed at run time, nothing
+heavy is compiled or downloaded at build time.
 
 ```sh
 docker build -t sachet-api .
-docker run --rm -p 8000:8000 sachet-api
+docker run --rm -p 8000:8000 \
+  -e GROQ_API_KEY=... -e GOOGLE_VISION_KEY=... sachet-api
 ```
 
-Build args: `PYTHON_VERSION` (default 3.12), `WHISPER_COMMIT`, `WHISPER_MODEL`.
+Build args: `PYTHON_VERSION` (default 3.12).
 
 ## Pasting a link
 

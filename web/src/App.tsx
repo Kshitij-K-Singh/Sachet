@@ -531,7 +531,7 @@ export default function App() {
   }
 
   /* Tab capture lands here as a webm/opus blob. It goes to the same
-     /api/transcribe endpoint as a file upload, so ffmpeg, whisper and the
+     /api/transcribe endpoint as a file upload, so ffmpeg, hosted STT and the
      language routing are all shared - no separate path to keep working.
      30s of Opus is ~120 KB, far inside the 25 MB limit. */
   async function handleListenClip(result: TabCaptureResult) {

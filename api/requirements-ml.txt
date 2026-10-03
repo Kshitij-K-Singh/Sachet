@@ -1,0 +1,19 @@
+# Optional ML-training dependencies (NOT needed for the API runtime).
+#
+# The slim Docker image and `api/requirements.txt` intentionally exclude
+# torch/transformers: transcription and OCR are hosted APIs, and the shadow
+# MuRIL classifier (`api/ml/infer.py`) degrades gracefully to None when
+# torch is absent. Install this file only for local training/eval work:
+#
+#   pip install -r requirements.txt -r requirements-ml.txt
+#
+# Mirrors the pre-slim runtime set so training stays reproducible.
+torch --index-url https://download.pytorch.org/whl/cpu
+transformers>=4.40
+accelerate>=0.30
+peft>=0.10
+safetensors>=0.4
+huggingface_hub>=0.23
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4

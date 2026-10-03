@@ -62,7 +62,7 @@ export interface UseTabCaptureOptions {
   maxMs?: number;
   /** Below this RMS we call it silence. Tuned by ear; tab audio is quiet. */
   silenceThreshold?: number;
-  /** Anything shorter is unusable - whisper needs a moment to lock on. */
+  /** Anything shorter is unusable - transcription needs a moment to lock on. */
   minMs?: number;
   onComplete?: (result: TabCaptureResult) => void;
   onError?: (error: CaptureError) => void;

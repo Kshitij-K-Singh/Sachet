@@ -119,7 +119,7 @@ describe("rmsOf", () => {
 });
 
 describe("pickMimeType", () => {
-  it("prefers Opus in WebM, which is what ffmpeg and whisper read directly", () => {
+  it("prefers Opus in WebM, which is what ffmpeg and hosted STT read directly", () => {
     withGlobals(
       { MediaRecorder: { isTypeSupported: (m: string) => m === "audio/webm;codecs=opus" } },
       () => expect(pickMimeType()).toBe("audio/webm;codecs=opus")

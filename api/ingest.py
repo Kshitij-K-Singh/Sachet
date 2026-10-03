@@ -3,9 +3,9 @@
 Turns a public video/reel URL into a transcript, preferring the cheap path:
 
   1. captions  -- yt-dlp --write-auto-subs --skip-download. Seconds, no ffmpeg,
-     no whisper CPU. This is the common case for YouTube.
+     no STT call. This is the common case for YouTube.
   2. media     -- download the audio-only stream and run the normal
-     transcribe_file() pipeline. Slow (CPU-bound whisper) but works for reels
+     transcribe_file() pipeline. One hosted STT call; works for reels
      and posts that ship no caption track.
 
 Both paths land in a temp dir that is always deleted. Nothing is persisted.
@@ -93,7 +93,7 @@ _VTT_META_RE = re.compile(r"^(WEBVTT|NOTE|STYLE|REGION|Kind:|Language:)", re.I)
 _VTT_NUM_RE = re.compile(r"^\d+$")
 _TAG_RE = re.compile(r"<[^>]*>")
 
-# One slot per concurrent whisper job; without a ceiling N paste requests tie up
+# One slot per concurrent STT job; without a ceiling N paste requests tie up
 # N times the CPU and the event loop starves. Override for a bigger box.
 MAX_CONCURRENT = max(1, int(os.environ.get("SACHET_MAX_CONCURRENT_INGEST", "2")))
 _SLOTS = threading.BoundedSemaphore(MAX_CONCURRENT)

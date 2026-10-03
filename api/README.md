@@ -302,49 +302,49 @@ Login-gated platforms are not supported: yt-dlp would need the user's cookies,
 which collides with the "no accounts, nothing stored" promise. Instagram reels
 behind a login will return an explanatory 400.
 
-## Screenshot OCR (EasyOCR, local)
+## Screenshot OCR (hosted vision API, hi+en)
 
 `POST /api/ocr` — multipart image (JPG/PNG/WebP, 10 MB, 4000px max) →
-`{ text, blocks: [{text, confidence}], model }`. EasyOCR `hi`+`en`
-reader, GPU when available; temp files deleted. OCR text lands in the
+`{ text, blocks: [{text, confidence}], model }`. Hosted `DOCUMENT_TEXT_DETECTION`
+(Google Cloud Vision by default, Azure AI Vision Read as alternative) with
+`hi`+`en` hints; temp files deleted. Configure with `GOOGLE_VISION_KEY`
+(or `AZURE_VISION_ENDPOINT` + `AZURE_VISION_KEY`). OCR text lands in the
 UI textarea for user review before analysis, so minor read errors
 (scrambled block order, Devanagari digits) never silently decide a
-verdict. Fixtures: `data/fixtures/shot_en.png`, `shot_hi.png`
-(regenerate with `data/make_ocr_fixtures.py`).
+verdict. Fixtures: `data/fixtures/shot_en.png`, `shot_hi.png`.
+Tests mock the provider boundary so they run offline with no key.
 
-## Transcription (Whisper.cpp, local)
+## Transcription (hosted STT API, hi+en)
 
 `POST /api/transcribe?language_hint=auto|hi|en` — multipart `file`
 (MP3/WAV/MP4, 25 MB, 3 min max) →
 `{ transcript, detected_language, duration_sec, model }`.
-ffmpeg normalizes to 16 kHz mono; whisper.cpp base multilingual model
-runs on CPU; temp files are deleted. Hindi speech may decode to Urdu
+ffmpeg normalizes to 16 kHz mono; a hosted OpenAI-compatible STT endpoint
+(Groq `whisper-large-v3-turbo` by default, OpenAI `whisper-1` as fallback,
+or any `SACHET_STT_ENDPOINT` gateway) transcribes it in seconds; temp
+files are deleted. Configure with `GROQ_API_KEY` (or `OPENAI_API_KEY`,
+or `SACHET_STT_ENDPOINT` + `SACHET_STT_API_KEY` + `SACHET_STT_MODEL`).
+Hindi speech may decode to Urdu
 script or Latin transliteration: `transliterate.py` normalizes Urdu
 script to Devanagari, and the rubric covers Latin-Hindi stems
 (PESA DUBBAL etc., all observed from real decoder output, never guessed).
 
-Setup (one time): `git clone whisper.cpp`, `cmake --build` (needs
-cmake/g++/ffmpeg), then `models/download-ggml-model.sh base`.
-Binaries live in `api/whisper.cpp/` (build output, not source). The root
-`Dockerfile` does all of the above for you and is the recommended setup.
+Setup: export an STT key. No compiler, no model download, no GPU needed.
 
 ## Docker
 
 `docker build -t sachet-api .` from the repo root, then
-`docker run --rm -p 8000:8000 sachet-api`.
+`docker run --rm -p 8000:8000 -e GROQ_API_KEY=... -e GOOGLE_VISION_KEY=... sachet-api`.
 
-Three stages (`whisper` / `deps` / `runtime`). Notes worth knowing before you
+Single stage (no compiler, no model downloads). Notes worth knowing before you
 change it:
 
-- `GGML_NATIVE=OFF` is mandatory. whisper.cpp defaults to `-march=native`, so
-  a binary built on an AVX-512 host dies with SIGILL elsewhere.
-- torch is installed CPU-only from the PyTorch CPU index *before*
-  `requirements.txt`, which does not pin it — otherwise the CUDA build and its
-  driver libraries land in the image.
-- ffmpeg is apt-installed in the **runtime** stage. Copying `/usr/bin/ffmpeg`
-  out of the deps stage would not work: it would not resolve `libavcodec`.
-- The HuggingFace cache is warmed at build time so the shadow classifier does
-  not need network on its first request.
-- One uvicorn worker by design. Whisper is CPU-bound and `ingest.MAX_CONCURRENT`
-  bounds fetches inside the process; more workers multiply both. Scale with
-  replicas.
+- ffmpeg is apt-installed. Copying `/usr/bin/ffmpeg` out of another stage
+  would not work: it would not resolve `libavcodec`.
+- No torch/transformers in the image. The MuRIL shadow classifier is optional
+  (`SACHET_MODEL=off` by default) and `ml/infer.py` degrades to `None` when
+  torch is absent. Install `api/requirements-ml.txt` only for local
+  training/eval.
+- One uvicorn worker by design. Hosted STT/OCR are network-bound and
+  `ingest.MAX_CONCURRENT` bounds fetches inside the process; more workers
+  multiply concurrent API spend. Scale with replicas.

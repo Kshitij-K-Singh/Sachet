@@ -19,8 +19,8 @@ interface ListenPanelProps {
  * screenshot paths: capture and transcribe, then the transcript lands in the
  * textarea for review, then the user analyses. That review step matters MORE
  * here than elsewhere, not less - tab audio is the noisiest input the app
- * takes (background music, room noise, autoplay-ad overlap) and whisper-base
- * will occasionally mishear it. A verdict computed on an unreviewed transcript
+ * takes (background music, room noise, autoplay-ad overlap) and hosted
+ * transcription will occasionally mishear it. A verdict computed on an unreviewed transcript
  * is exactly what the rest of this app is designed to avoid.
  */
 /* The hook returns English prose. It is a pure function with its own test suite

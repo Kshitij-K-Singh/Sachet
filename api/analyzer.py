@@ -506,7 +506,11 @@ def has_disclosure(text: str) -> bool:
 # items via the relative clause "which is why"; `which` therefore only pairs
 # with a finance noun, never with `is` on its own.
 _QUESTION_RE = re.compile(
-    r"\?\s*\z"
+    # \Z, not \z: absolute end-of-string on every Python >= 3.6. \z only
+    # exists on 3.14+, and the Docker image pins 3.12 -- see "bad escape \z"
+    # crash on container boot. \Z and \z match identically (unlike $, neither
+    # matches before a trailing newline).
+    r"\?\s*\Z"
     r"|\b(?:will|can|could|should|would|shall)\s+"
     r"(?:i|we|you|it|they|he|she|this|that|these|those|"
     r"my|our|your|his|her|their|its)\b"

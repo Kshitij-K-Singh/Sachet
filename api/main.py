@@ -150,8 +150,9 @@ def meta() -> dict:
         "caution_levels": ["low", "medium", "high", "not_applicable"],
         "ui_languages": ["en", "hi"],
         "disclaimer": DISCLAIMER,
-        "audio_upload": "whisper-cpp",
+        "audio_upload": "hosted-stt",
         "url_ingest": {"available": True, "sources": ["captions", "media"]},
+        "ocr": "hosted-vision",
     }
 
 
@@ -181,7 +182,7 @@ async def transcribe(file: UploadFile, language_hint: str = "auto") -> dict:
         src = Path(tmp) / f"upload{ext}"
         src.write_bytes(blob)
         try:
-            # ffmpeg + whisper are blocking subprocesses; run them off the event
+            # ffmpeg + hosted STT are blocking; run them off the event
             # loop so one transcription cannot stall every other request.
             return await run_in_threadpool(transcribe_file, src, language_hint)
         except PipelineError as e:
@@ -249,7 +250,7 @@ def ingest_url_endpoint(req: IngestUrlRequest) -> dict:
     """Fetch a public video/reel link and transcribe it.
 
     Declared sync on purpose: the whole body is blocking (DNS, then yt-dlp
-    subprocesses, possibly whisper), so FastAPI runs it in a threadpool for us.
+    subprocesses, possibly hosted STT), so FastAPI runs it in a threadpool for us.
     ingest.py caps concurrency itself so paste requests cannot pile up.
     """
     try:

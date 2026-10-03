@@ -8,16 +8,7 @@ python-multipart>=0.0.18
 # (see ingest.py), so this entry is what puts `yt-dlp` on PATH. Kept here
 # rather than assumed on the host: ffmpeg/ffprobe are still bare system deps.
 yt-dlp>=2025.1.1
-# ML runtime. Local dev uses CUDA torch; the Dockerfile installs CPU-only
-# torch instead (see Dockerfile) to keep the image small. Everything else
-# installs identically in both places.
-transformers>=4.40
-accelerate>=0.30
-peft>=0.10
-safetensors>=0.4
-huggingface_hub>=0.23
-easyocr>=1.7
+# Image validation for POST /api/ocr (Pillow only). OCR and transcription
+# themselves are hosted APIs (see ocr.py / transcribe.py), so this image
+# needs no torch, transformers, easyocr, or whisper.cpp build.
 pillow>=10.0
-numpy>=1.26
-pandas>=2.0
-scikit-learn>=1.4

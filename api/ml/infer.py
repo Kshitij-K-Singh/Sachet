@@ -29,9 +29,16 @@ def _load() -> dict | object:
     if not (ADAPTER_DIR / "adapter_model.safetensors").exists():
         _loaded = _disabled
         return _loaded
-    import torch
-    from peft import PeftModel
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    try:
+        import torch
+        from peft import PeftModel
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    except ImportError:
+        # Slim runtime image ships without torch/transformers: the shadow
+        # classifier is optional (hidden in the UI), so degrade to None
+        # instead of crashing the /api/analyze endpoint.
+        _loaded = _disabled
+        return _loaded
 
     base_name = json.loads((ADAPTER_DIR / "adapter_config.json").read_text()).get(
         "base_model_name_or_path", "google/muril-base-cased"
@@ -50,7 +57,10 @@ def second_opinion(text: str) -> dict | None:
     bundle = _load()
     if bundle is _disabled or not text.strip():
         return None
-    import torch
+    try:
+        import torch
+    except ImportError:
+        return None
 
     assert isinstance(bundle, dict)
     tok, model, device = bundle["tok"], bundle["model"], bundle["device"]
