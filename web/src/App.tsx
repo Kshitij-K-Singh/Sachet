@@ -16,6 +16,7 @@ import Backdrop from "./bits/Backdrop";
 import Magnet from "./bits/Magnet";
 import ScrollProgress from "./bits/ScrollProgress";
 import SplitText from "./bits/SplitText";
+import AccessibilityBar from "./ui/AccessibilityBar";
 import Card from "./ui/Card";
 import ListenPanel from "./ui/ListenPanel";
 import Logo from "./ui/Logo";
@@ -619,8 +620,13 @@ export default function App() {
 
   return (
     <div className="page">
+      <a href="#main-content" className="skip-link">
+        {t("a11y.skip")}
+      </a>
       <Backdrop />
       <ScrollProgress />
+
+      <AccessibilityBar />
 
       <header className="topbar rise">
         <Logo />
@@ -668,7 +674,7 @@ export default function App() {
       </div>
 
       {!result ? (
-        <main className="layout">
+        <main className="layout" id="main-content" tabIndex={-1}>
           <div className="hero-col">
             <div className="hero rise" style={riseDelay(100)}>
               <span className="hero-pill">{t("hero.pill")}</span>
@@ -908,7 +914,7 @@ export default function App() {
           </aside>
         </main>
       ) : (
-        <main className="layout result-layout">
+        <main className="layout result-layout" id="main-content" tabIndex={-1}>
           <Card
             key={`${result.classification}-${result.caution_score}`}
             className={`verdict verdict-${result.classification} rise`}

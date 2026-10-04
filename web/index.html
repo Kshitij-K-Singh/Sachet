@@ -23,6 +23,14 @@
             document.documentElement.lang = l;
             document.documentElement.dataset.lang = l;
           }
+          var f = localStorage.getItem("sachet.font");
+          if (f === "small" || f === "default" || f === "large" || f === "xlarge") {
+            document.documentElement.dataset.font = f;
+          }
+          var c = localStorage.getItem("sachet.contrast");
+          if (c === "default" || c === "high" || c === "grayscale") {
+            document.documentElement.dataset.contrast = c;
+          }
         } catch (e) {
           /* storage blocked; defaults in :root and the provider apply */
         }

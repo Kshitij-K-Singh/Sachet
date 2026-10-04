@@ -1282,3 +1282,221 @@ a.ghost { text-decoration: none; }
   .hero-pill { margin-bottom: 10px; }
   .textarea { min-height: 96px; }
 }
+
+/* ------------------------------------------------------------------
+   Accessibility: SEBI / NSDL style toolbar.
+   - .skip-link: hidden until keyboard focus, then pinned top-left.
+   - .a11y-bar: slim full-width strip above the header with A-/A/A+
+     and STD/HC/GS contrast switches. Same tap target as other controls.
+   - data-font on <html> scales the whole app via zoom (the layout is
+     px-based, so html font-size alone would not move it). The bar itself
+     stays unscaled so its buttons remain tappable at 125%.
+   - data-contrast="high": black/yellow high-contrast theme for low vision.
+   - data-contrast="grayscale": desaturated palette for colour blindness;
+     no meaning is carried by colour alone (verdicts keep text labels).
+   ------------------------------------------------------------------ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip-link target: focus lands here, but it is a whole <main>, not a
+   control, so it must not draw a focus ring. */
+#main-content:focus { outline: none; }
+
+.skip-link {
+  position: fixed;
+  top: -60px;
+  left: 12px;
+  z-index: 100;
+  border-radius: var(--r-sm);
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 18px;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus-visible {
+  top: 12px;
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.a11y-bar {
+  width: 100%;
+  max-width: 1080px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px var(--gutter) 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.a11y-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.a11y-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-right: 2px;
+}
+
+.a11y-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--line);
+  flex: none;
+}
+
+.a11y-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 38px;
+  min-height: 34px;
+  padding: 0 9px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.a11y-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--line-strong); }
+.a11y-btn:focus-visible { outline: none; box-shadow: var(--focus); }
+.a11y-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.a11y-btn.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.a11y-btn-sm { font-size: 11.5px; }
+.a11y-btn-lg { font-size: 14.5px; }
+
+.a11y-contrast-word { font-size: 10.5px; letter-spacing: 0.06em; }
+.a11y-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--ink) 50%, var(--accent) 50%);
+  flex: none;
+}
+
+/* Text-size scale. Zoom (not html font-size) because the layout is px-based;
+   this matches what gov A+ buttons do: the whole page gets bigger. */
+html[data-font="small"] #root { zoom: 0.9; }
+html[data-font="large"] #root { zoom: 1.12; }
+html[data-font="xlarge"] #root { zoom: 1.25; }
+html[data-font="large"] body,
+html[data-font="xlarge"] body { line-height: 1.65; }
+
+/* High contrast: pure black canvas, yellow ink, thick edges. Backdrop art and
+   translucency go away -- they are decoration that hurts legibility here.
+   Severity keeps its meaning through text labels, with brighter fills. */
+html[data-contrast="high"] {
+  color-scheme: dark;
+  --bg: #000;
+  --tint: 255 255 255;
+  --backdrop-scrim: rgba(0, 0, 0, 1);
+  --backdrop-vignette: rgba(0, 0, 0, 1);
+  --ink: #fff;
+  --muted: #f2f2f2;
+  --faint: #d9d9d9;
+  --accent: #ffd400;
+  --accent-ink: #000;
+  --accent-soft: rgba(255, 212, 0, 0.14);
+  --accent-line: #ffd400;
+  --accent-hover: #ffe14d;
+  --on-soft: #ffe14d;
+  --hl-bg: #ffd400;
+  --hl-ink: #000;
+  --good: #00ff9d;
+  --warn: #ffd400;
+  --bad: #ff6b6b;
+  --card: #000;
+  --line: #fff;
+  --line-strong: #ffd400;
+  --field: #0a0a0a;
+  --focus: 0 0 0 3px #ffd400;
+}
+
+html[data-contrast="high"] .backdrop,
+html[data-contrast="high"] .backdrop-scrim,
+html[data-contrast="high"] .rcard-spot::before,
+html[data-contrast="high"] .btn-shimmer::after { display: none; }
+
+html[data-contrast="high"] .rcard,
+html[data-contrast="high"] .notice,
+html[data-contrast="high"] .claim,
+html[data-contrast="high"] .v-row,
+html[data-contrast="high"] .a11y-btn,
+html[data-contrast="high"] .icon-btn,
+html[data-contrast="high"] .lang-switch,
+html[data-contrast="high"] .textarea,
+html[data-contrast="high"] .link-input { border-width: 2px; }
+
+html[data-contrast="high"] a { text-decoration: underline; text-underline-offset: 3px; }
+html[data-contrast="high"] .hl { border-bottom-width: 3px; }
+
+/* Grayscale (colour-blindness aid). No filter on ancestors of fixed elements
+   (that would re-anchor the backdrop/scroll bar), so the palette itself is
+   desaturated: accent becomes neutral, severity becomes gray steps that differ
+   in luminance, not hue. Text labels already carry the meaning. */
+html[data-contrast="grayscale"] {
+  --accent: #8a8a8a;
+  --accent-ink: #fff;
+  --accent-soft: rgba(138, 138, 138, 0.16);
+  --accent-line: rgba(138, 138, 138, 0.7);
+  --accent-hover: #6f6f6f;
+  --on-soft: var(--ink);
+  --hl-bg: rgba(138, 138, 138, 0.35);
+  --hl-ink: var(--ink);
+  --good: #d9d9d9;
+  --warn: #8a8a8a;
+  --bad: #3d3d3d;
+}
+
+html[data-contrast="grayscale"][data-theme="light"] {
+  --accent: #4d4d4d;
+  --accent-ink: #fff;
+  --accent-soft: rgba(77, 77, 77, 0.12);
+  --accent-line: rgba(77, 77, 77, 0.6);
+  --accent-hover: #333;
+  --good: #333;
+  --warn: #666;
+  --bad: #000;
+}
+
+html[data-contrast="grayscale"] .pmeter-fill.low { background: #bdbdbd; }
+html[data-contrast="grayscale"] .pmeter-fill.medium { background: #7a7a7a; }
+html[data-contrast="grayscale"] .pmeter-fill.high { background: #2b2b2b; }
+html[data-contrast="grayscale"][data-theme="light"] .pmeter-fill.low { background: #6b6b6b; }
+html[data-contrast="grayscale"][data-theme="light"] .pmeter-fill.medium { background: #3f3f3f; }
+html[data-contrast="grayscale"][data-theme="light"] .pmeter-fill.high { background: #000; }
+
+/* High contrast + large text: keep the strip usable, not pretty. */
+@media (max-width: 560px) {
+  .a11y-bar { gap: 6px 8px; }
+  .a11y-group-label { display: none; }
+}
