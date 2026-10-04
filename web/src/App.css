@@ -1333,16 +1333,26 @@ a.ghost { text-decoration: none; }
   box-shadow: var(--focus);
 }
 
+/* A solid strip, not floating text: transparent controls over the animated
+   backdrop washed out completely, which is embarrassing for an accessibility
+   feature. Same card surface + strong hairline as the notice below it. */
 .a11y-bar {
-  width: 100%;
-  max-width: 1080px;
+  width: calc(100% - var(--gutter) * 2);
+  max-width: 1040px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 12px;
-  padding: 8px var(--gutter) 0;
+  margin: 10px 0 0;
+  padding: 8px clamp(12px, 3vw, 16px);
   font-size: 12.5px;
-  color: var(--muted);
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--lift-1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .a11y-group {
@@ -1357,14 +1367,14 @@ a.ghost { text-decoration: none; }
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--muted);
   margin-right: 2px;
 }
 
 .a11y-sep {
   width: 1px;
   height: 20px;
-  background: var(--line);
+  background: var(--line-strong);
   flex: none;
 }
 
@@ -1377,9 +1387,9 @@ a.ghost { text-decoration: none; }
   min-height: 34px;
   padding: 0 9px;
   border-radius: var(--r-sm);
-  border: 1px solid var(--line);
-  background: var(--field);
-  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  background: rgb(var(--tint) / 0.06);
+  color: var(--ink);
   font-family: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -1387,7 +1397,7 @@ a.ghost { text-decoration: none; }
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.a11y-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--line-strong); }
+.a11y-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
 .a11y-btn:focus-visible { outline: none; box-shadow: var(--focus); }
 .a11y-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .a11y-btn.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
