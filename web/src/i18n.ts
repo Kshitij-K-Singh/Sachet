@@ -232,7 +232,7 @@ const en = {
   /* errors + footer */
   "err.tooShort": "Paste a little more text so there is something to judge.",
   "err.generic": "Something went wrong. Try again.",
-  "footer.built": "Sachet: promotion vs education analyzer, built for Sangyan 2026 Track E. Rubric v1.3.",
+  "footer.built": "Sachet: promotion vs education analyzer, built for Sangyan 2026 Track E. Rubric v1.5.",
   "footer.disclaimer": "This is an awareness tool, not investment advice.",
 
   /* next steps, one array per classification */
@@ -471,7 +471,7 @@ const hi: Record<StringKey, string> = {
 
   "err.tooShort": "फैसला करने के लिए थोड़ा और टेक्स्ट चिपकाएँ।",
   "err.generic": "कुछ गड़बड़ हो गई। फिर कोशिश करें।",
-  "footer.built": "सचेट: प्रचार बनाम शिक्षा विश्लेषक, संग्यन 2026 ट्रैक E के लिए। रूब्रिक v1.3.",
+  "footer.built": "सचेट: प्रचार बनाम शिक्षा विश्लेषक, संग्यन 2026 ट्रैक E के लिए। रूब्रिक v1.5.",
   "footer.disclaimer": "यह जागरूकता उपकरण है, निवेश सलाह नहीं।",
 
   "next.education.0":

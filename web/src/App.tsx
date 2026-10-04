@@ -899,7 +899,7 @@ export default function App() {
 
             <Card className="rise" style={riseDelay(300)}>
               <Card.Header>
-                <Card.Title>Rubric v1.3</Card.Title>
+                <Card.Title>Rubric v1.5</Card.Title>
                 <Card.Description>{t("rail.rubric.desc")}</Card.Description>
               </Card.Header>
               <Card.Content>
